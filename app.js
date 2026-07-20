@@ -23,12 +23,28 @@ const el = {
   grantBtn: document.getElementById("grant-btn"),
   grantSelf: document.getElementById("grant-self"),
   grantHint: document.getElementById("grant-hint"),
+  categoryGroup: document.getElementById("category-group"),
+  modelPicker: document.getElementById("model-picker"),
+  generateBox: document.getElementById("generate-box"),
+  imageRow: document.getElementById("image-row"),
+  imageInput: document.getElementById("image-input"),
+  imagePreview: document.getElementById("image-preview"),
+  promptRow: document.getElementById("prompt-row"),
+  promptInput: document.getElementById("prompt-input"),
+  generateBtn: document.getElementById("generate-btn"),
+  generateHint: document.getElementById("generate-hint"),
+  gallery: document.getElementById("gallery"),
 };
 
 const state = {
   userId: null,
   settings: { language: "ru", theme: "system", text_model: "grok" },
   models: [],
+  mediaCategories: [],
+  mediaModels: [],
+  activeCategory: null,
+  activeModel: null,
+  uploadedImage: null,
 };
 
 /* ---------- Утилиты ---------- */
@@ -77,6 +93,7 @@ function initTabs() {
         tab.hidden = tab.id !== `tab-${btn.dataset.tab}`;
       });
       if (btn.dataset.tab === "download") loadHistory();
+      if (btn.dataset.tab === "models") loadGallery();
     });
   });
 }
@@ -300,6 +317,10 @@ async function saveSettings(patch) {
   if (patch.language) applyLanguage(patch.language);
   if (patch.theme) applyTheme(patch.theme);
   if (patch.text_model) renderModels();
+  if (patch.language) {
+    renderCategories();
+    renderModelPicker();
+  }
 
   try {
     state.settings = await api("/api/settings", {
@@ -399,12 +420,236 @@ function initAdmin() {
   });
 }
 
+/* ---------- Модели АИ ---------- */
+
+let isGenerating = false;
+
+function renderCategories() {
+  el.categoryGroup.textContent = "";
+
+  for (const cat of state.mediaCategories) {
+    const btn = document.createElement("button");
+    btn.dataset.value = cat.key;
+    btn.textContent = state.settings.language === "en" ? cat.name_en : cat.name_ru;
+    btn.classList.toggle("is-active", cat.key === state.activeCategory);
+    btn.addEventListener("click", () => selectCategory(cat.key));
+    el.categoryGroup.appendChild(btn);
+  }
+}
+
+function selectCategory(key) {
+  state.activeCategory = key;
+  state.activeModel = null;
+  state.uploadedImage = null;
+  el.generateBox.hidden = true;
+  renderCategories();
+  renderModelPicker();
+}
+
+function renderModelPicker() {
+  el.modelPicker.textContent = "";
+
+  const models = state.mediaModels.filter((m) => m.category === state.activeCategory);
+  for (const model of models) {
+    const card = document.createElement("button");
+    card.className = "model-card";
+    card.classList.toggle("is-active", model.key === state.activeModel?.key);
+
+    const head = document.createElement("div");
+    head.className = "model-head";
+
+    const name = document.createElement("b");
+    name.textContent = model.name;
+
+    const price = document.createElement("span");
+    price.className = "badge";
+    price.textContent = `${model.cost} 🪙`;
+
+    head.append(name, price);
+
+    const desc = document.createElement("p");
+    desc.className = "model-desc";
+    desc.textContent = state.settings.language === "en" ? model.desc_en : model.desc_ru;
+
+    card.append(head, desc);
+    card.addEventListener("click", () => selectModel(model));
+    el.modelPicker.appendChild(card);
+  }
+}
+
+function selectModel(model) {
+  state.activeModel = model;
+  renderModelPicker();
+
+  el.generateBox.hidden = false;
+  el.imageRow.hidden = !model.needs_image;
+  el.promptRow.hidden = !!model.no_prompt;
+  el.promptInput.placeholder = t("gen.promptPh");
+  setHint(el.generateHint, "");
+  el.generateBox.scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+
+function initImageUpload() {
+  el.imageInput.addEventListener("change", () => {
+    const file = el.imageInput.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      state.uploadedImage = reader.result;
+      el.imagePreview.src = reader.result;
+      el.imagePreview.hidden = false;
+    };
+    reader.onerror = () => setHint(el.generateHint, t("gen.needImage"), "error");
+    reader.readAsDataURL(file);
+  });
+}
+
+async function startGeneration() {
+  const model = state.activeModel;
+  if (!model) return;
+
+  const prompt = el.promptInput.value.trim();
+  if (!prompt && !model.no_prompt) {
+    setHint(el.generateHint, t("gen.needPrompt"), "error");
+    return;
+  }
+  if (model.needs_image && !state.uploadedImage) {
+    setHint(el.generateHint, t("gen.needImage"), "error");
+    return;
+  }
+
+  isGenerating = true;
+  el.generateBtn.disabled = true;
+  el.generateBtn.textContent = t("gen.button.busy");
+  setHint(el.generateHint, t("gen.queued"));
+
+  try {
+    const job = await api("/api/media/generate", {
+      method: "POST",
+      body: JSON.stringify({
+        model: model.key,
+        prompt,
+        image: state.uploadedImage || undefined,
+      }),
+    });
+    setHint(el.generateHint, t("gen.working"));
+    loadGallery();
+    await pollGeneration(job.id);
+  } catch (err) {
+    setHint(el.generateHint, err.message, "error");
+  } finally {
+    isGenerating = false;
+    el.generateBtn.disabled = false;
+    el.generateBtn.textContent = t("gen.button");
+  }
+}
+
+async function pollGeneration(id) {
+  const deadline = Date.now() + POLL_TIMEOUT_MS;
+
+  while (Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
+
+    let job;
+    try {
+      job = await api(`/api/media/job/${id}`);
+    } catch {
+      continue; // один неудачный опрос — не повод бросать задачу
+    }
+
+    if (job.status === "pending") continue;
+
+    setBalance(job.balance);
+    loadGallery();
+
+    if (job.status === "done") {
+      setHint(el.generateHint, t("gen.done"), "ok");
+      tg?.HapticFeedback?.notificationOccurred?.("success");
+    } else {
+      setHint(el.generateHint, job.error || t("gen.failed"), "error");
+      tg?.HapticFeedback?.notificationOccurred?.("error");
+    }
+    return;
+  }
+
+  setHint(el.generateHint, t("gen.slow"));
+}
+
+function renderGallery(items) {
+  el.gallery.textContent = "";
+
+  if (!items.length) {
+    const p = document.createElement("p");
+    p.className = "muted";
+    p.textContent = t("gen.empty");
+    el.gallery.appendChild(p);
+    return;
+  }
+
+  for (const item of items) {
+    const card = document.createElement("div");
+    card.className = "gallery-item";
+
+    if (item.status === "done" && item.output_url) {
+      if (item.output_kind === "video") {
+        const video = document.createElement("video");
+        video.src = item.output_url;
+        video.controls = true;
+        video.playsInline = true;
+        card.appendChild(video);
+      } else {
+        const img = document.createElement("img");
+        img.src = item.output_url;
+        img.loading = "lazy";
+        card.appendChild(img);
+      }
+    }
+
+    const meta = document.createElement("div");
+    meta.className = item.status === "failed" ? "gallery-meta error" : "gallery-meta";
+    if (item.status === "failed") {
+      meta.textContent = item.error || t("gen.failed");
+    } else if (item.status === "pending") {
+      meta.textContent = t("gen.pending");
+    } else {
+      // промпт приходит от пользователя — только textContent
+      meta.textContent = item.prompt || "";
+    }
+
+    card.appendChild(meta);
+    el.gallery.appendChild(card);
+  }
+}
+
+async function loadGallery() {
+  try {
+    const data = await api("/api/media/gallery");
+    renderGallery(data.items || []);
+  } catch {
+    el.gallery.textContent = "";
+  }
+}
+
+async function loadMediaCatalog() {
+  const data = await api("/api/media/models");
+  state.mediaCategories = data.categories || [];
+  state.mediaModels = data.items || [];
+  state.activeCategory = state.mediaCategories[0]?.key ?? null;
+  renderCategories();
+  renderModelPicker();
+}
+
 /* ---------- Старт ---------- */
 
 async function init() {
   initTabs();
   initSettingsControls();
   initAdmin();
+  initImageUpload();
+  el.generateBtn.addEventListener("click", () => {
+    if (!isGenerating) startGeneration();
+  });
   applyLanguage(state.settings.language);
   setHint(el.hint, t("dl.hint"));
 
@@ -451,6 +696,8 @@ async function init() {
     state.models = models.items || [];
     renderModels();
 
+    await loadMediaCatalog();
+    loadGallery();
     loadHistory();
   } catch (err) {
     setHint(el.hint, `${t("err.noServer")}: ${err.message}`, "error");

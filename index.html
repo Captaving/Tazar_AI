@@ -19,11 +19,28 @@
 <main>
   <!-- Модели АИ -->
   <section class="tab" id="tab-models" hidden>
-    <div class="empty">
-      <p class="empty-icon" aria-hidden="true">&#10024;</p>
-      <h2 data-i18n="models.title">Модели АИ</h2>
-      <p data-i18n="models.soon">Генерация картинок, видео и аудио по категориям появится здесь следующим шагом.</p>
+    <div class="segmented" id="category-group"></div>
+
+    <div id="model-picker" class="models"></div>
+
+    <div id="generate-box" class="card" hidden>
+      <div id="image-row" hidden>
+        <label for="image-input" data-i18n="gen.image">Исходная картинка</label>
+        <input id="image-input" type="file" accept="image/*" />
+        <img id="image-preview" alt="" hidden />
+      </div>
+
+      <div id="prompt-row">
+        <label for="prompt-input" data-i18n="gen.prompt">Что сгенерировать</label>
+        <textarea id="prompt-input" rows="3" placeholder="..."></textarea>
+      </div>
+
+      <button id="generate-btn" class="primary" data-i18n="gen.button">Сгенерировать</button>
+      <p class="hint" id="generate-hint"></p>
     </div>
+
+    <h2 class="section-title" data-i18n="gen.gallery">Мои генерации</h2>
+    <div id="gallery" class="gallery"></div>
   </section>
 
   <!-- Скачивание -->

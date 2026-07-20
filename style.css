@@ -216,6 +216,67 @@ button.ghost {
 
 .quality-btn:active { border-color: var(--button); }
 
+/* Генерация: форма и галерея */
+textarea {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--hint) 35%, transparent);
+  background: var(--bg);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 16px;
+  resize: vertical;
+}
+
+textarea:focus { outline: none; border-color: var(--button); }
+
+input[type="file"] {
+  width: 100%;
+  font-size: 13px;
+  color: var(--hint);
+}
+
+#image-preview {
+  width: 100%;
+  max-height: 220px;
+  object-fit: contain;
+  border-radius: 12px;
+  margin-top: 10px;
+  background: var(--bg);
+}
+
+#image-row, #prompt-row { display: flex; flex-direction: column; gap: 8px; }
+
+.gallery { display: flex; flex-direction: column; gap: 10px; }
+
+.gallery-item {
+  background: var(--card);
+  border-radius: 14px;
+  padding: 10px;
+  overflow: hidden;
+}
+
+.gallery-item img, .gallery-item video {
+  width: 100%;
+  border-radius: 10px;
+  display: block;
+  background: var(--bg);
+}
+
+.gallery-meta {
+  font-size: 12px;
+  color: var(--hint);
+  margin-top: 8px;
+  overflow-wrap: anywhere;
+}
+
+.gallery-meta.error { color: var(--danger); }
+
+/* Категории прокручиваются, если не влезают */
+#category-group { overflow-x: auto; }
+#category-group button { flex: 0 0 auto; white-space: nowrap; }
+
 /* История */
 .history { display: flex; flex-direction: column; gap: 8px; }
 
