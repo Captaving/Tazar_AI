@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>Downloader Bot</title>
+<link rel="stylesheet" href="style.css" />
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+</head>
+<body>
+  <main class="screen">
+    <div class="card">
+      <p class="eyebrow">Downloader Bot · мини-апп</p>
+      <h1 id="greeting">Открываем…</h1>
+
+      <div class="balance" id="balance-row" hidden>
+        <span class="balance-icon" aria-hidden="true">💠</span>
+        <span id="balance-value">—</span>
+        <span class="balance-label">жетонов</span>
+      </div>
+
+      <p class="status" id="status">Проверяю связь с сервером…</p>
+    </div>
+
+    <p class="footnote">Это проверочный экран (шаг 1). Каталог моделей появится здесь следующим шагом.</p>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
