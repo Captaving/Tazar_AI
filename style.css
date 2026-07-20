@@ -216,6 +216,110 @@ button.ghost {
 
 .quality-btn:active { border-color: var(--button); }
 
+.section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.link-btn {
+  border: 0;
+  background: none;
+  color: var(--button);
+  font-size: 13px;
+  padding: 0;
+  cursor: pointer;
+}
+
+.del-btn {
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--hint) 18%, transparent);
+  color: var(--hint);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.del-btn:disabled { opacity: 0.4; }
+
+.gallery-item { position: relative; }
+.gallery-item .del-btn { position: absolute; top: 16px; right: 16px; }
+
+/* Экраны каталога моделей */
+.cat-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.cat-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 18px 14px;
+  border: 0;
+  border-radius: 16px;
+  background: var(--card);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  position: relative;
+}
+
+.cat-icon { font-size: 26px; line-height: 1; }
+
+.cat-count {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  font-size: 12px;
+  color: var(--hint);
+}
+
+.back-btn {
+  border: 0;
+  background: none;
+  color: var(--button);
+  font-size: 15px;
+  padding: 0 0 12px;
+  cursor: pointer;
+}
+
+.screen-title { margin: 0 0 4px; font-size: 20px; }
+.screen-sub { margin: 0 0 16px; font-size: 13px; color: var(--hint); }
+
+/* Админ-статистика */
+.stat-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.stat-card {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--card);
+}
+
+.stat-card b { font-size: 19px; }
+.stat-card span { font-size: 11px; color: var(--hint); }
+
+.stat-title { grid-column: 1 / -1; margin: 8px 0 0; font-weight: 600; }
+.stat-row { grid-column: 1 / -1; margin: 2px 0; font-size: 13px; }
+
+#lookup-result:not(:empty) { margin-top: 4px; }
+
 /* Генерация: форма и галерея */
 textarea {
   width: 100%;

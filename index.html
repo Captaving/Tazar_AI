@@ -19,28 +19,45 @@
 <main>
   <!-- Модели АИ -->
   <section class="tab" id="tab-models" hidden>
-    <div class="segmented" id="category-group"></div>
-
-    <div id="model-picker" class="models"></div>
-
-    <div id="generate-box" class="card" hidden>
-      <div id="image-row" hidden>
-        <label for="image-input" data-i18n="gen.image">Исходная картинка</label>
-        <input id="image-input" type="file" accept="image/*" />
-        <img id="image-preview" alt="" hidden />
+    <!-- Шаг 1: категории -->
+    <div id="screen-categories">
+      <div id="category-grid" class="cat-grid"></div>
+      <div class="section-head">
+        <h2 class="section-title" data-i18n="gen.gallery">Мои генерации</h2>
+        <button id="clear-gallery" class="link-btn" data-i18n="gen.clearAll">Очистить всё</button>
       </div>
-
-      <div id="prompt-row">
-        <label for="prompt-input" data-i18n="gen.prompt">Что сгенерировать</label>
-        <textarea id="prompt-input" rows="3" placeholder="..."></textarea>
-      </div>
-
-      <button id="generate-btn" class="primary" data-i18n="gen.button">Сгенерировать</button>
-      <p class="hint" id="generate-hint"></p>
+      <div id="gallery" class="gallery"></div>
     </div>
 
-    <h2 class="section-title" data-i18n="gen.gallery">Мои генерации</h2>
-    <div id="gallery" class="gallery"></div>
+    <!-- Шаг 2: модели внутри категории -->
+    <div id="screen-models" hidden>
+      <button class="back-btn" data-back="categories">&larr; <span data-i18n="gen.back">Назад</span></button>
+      <h2 class="screen-title" id="models-heading"></h2>
+      <div id="model-picker" class="models"></div>
+    </div>
+
+    <!-- Шаг 3: генерация -->
+    <div id="screen-generate" hidden>
+      <button class="back-btn" data-back="models">&larr; <span data-i18n="gen.backModels">К моделям</span></button>
+      <h2 class="screen-title" id="generate-heading"></h2>
+      <p class="screen-sub" id="generate-sub"></p>
+
+      <div class="card">
+        <div id="image-row" hidden>
+          <label for="image-input" data-i18n="gen.image">Исходная картинка</label>
+          <input id="image-input" type="file" accept="image/*" />
+          <img id="image-preview" alt="" hidden />
+        </div>
+
+        <div id="prompt-row">
+          <label for="prompt-input" data-i18n="gen.prompt">Что сгенерировать</label>
+          <textarea id="prompt-input" rows="3" placeholder="..."></textarea>
+        </div>
+
+        <button id="generate-btn" class="primary" data-i18n="gen.button">Сгенерировать</button>
+        <p class="hint" id="generate-hint"></p>
+      </div>
+    </div>
   </section>
 
   <!-- Скачивание -->
@@ -53,7 +70,10 @@
       <p class="hint" id="download-hint"></p>
     </div>
 
-    <h2 class="section-title" data-i18n="dl.history">История</h2>
+    <div class="section-head">
+      <h2 class="section-title" data-i18n="dl.history">История</h2>
+      <button id="clear-history" class="link-btn" data-i18n="gen.clearAll">Очистить всё</button>
+    </div>
     <div id="history-list" class="history"></div>
   </section>
 
@@ -77,7 +97,11 @@
 
     <div id="admin-panel" hidden>
       <h2 class="section-title" data-i18n="admin.title">Админ-панель</h2>
+
+      <div id="admin-stats" class="stat-grid"></div>
+
       <div class="card">
+        <b data-i18n="admin.grant">Начислить</b>
         <label for="grant-user" data-i18n="admin.user">ID пользователя</label>
         <input id="grant-user" type="number" inputmode="numeric" placeholder="123456789" />
         <label for="grant-amount" data-i18n="admin.amount">Сколько жетонов</label>
@@ -85,6 +109,20 @@
         <button id="grant-btn" class="primary" data-i18n="admin.grant">Начислить</button>
         <button id="grant-self" class="ghost" data-i18n="admin.self">Себе</button>
         <p class="hint" id="grant-hint"></p>
+      </div>
+
+      <div class="card">
+        <b data-i18n="admin.lookup">Найти пользователя</b>
+        <input id="lookup-user" type="number" inputmode="numeric" placeholder="123456789" />
+        <button id="lookup-btn" class="ghost" data-i18n="admin.lookupBtn">Показать</button>
+        <div id="lookup-result"></div>
+      </div>
+
+      <div class="card">
+        <b data-i18n="admin.broadcast">Рассылка всем</b>
+        <textarea id="broadcast-text" rows="3" placeholder="..."></textarea>
+        <button id="broadcast-btn" class="ghost" data-i18n="admin.broadcastBtn">Отправить всем</button>
+        <p class="hint" id="broadcast-hint"></p>
       </div>
     </div>
   </section>

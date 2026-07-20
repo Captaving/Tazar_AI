@@ -23,9 +23,14 @@ const el = {
   grantBtn: document.getElementById("grant-btn"),
   grantSelf: document.getElementById("grant-self"),
   grantHint: document.getElementById("grant-hint"),
-  categoryGroup: document.getElementById("category-group"),
+  screenCategories: document.getElementById("screen-categories"),
+  screenModels: document.getElementById("screen-models"),
+  screenGenerate: document.getElementById("screen-generate"),
+  categoryGrid: document.getElementById("category-grid"),
+  modelsHeading: document.getElementById("models-heading"),
+  generateHeading: document.getElementById("generate-heading"),
+  generateSub: document.getElementById("generate-sub"),
   modelPicker: document.getElementById("model-picker"),
-  generateBox: document.getElementById("generate-box"),
   imageRow: document.getElementById("image-row"),
   imageInput: document.getElementById("image-input"),
   imagePreview: document.getElementById("image-preview"),
@@ -34,6 +39,15 @@ const el = {
   generateBtn: document.getElementById("generate-btn"),
   generateHint: document.getElementById("generate-hint"),
   gallery: document.getElementById("gallery"),
+  clearGallery: document.getElementById("clear-gallery"),
+  clearHistory: document.getElementById("clear-history"),
+  adminStats: document.getElementById("admin-stats"),
+  lookupUser: document.getElementById("lookup-user"),
+  lookupBtn: document.getElementById("lookup-btn"),
+  lookupResult: document.getElementById("lookup-result"),
+  broadcastText: document.getElementById("broadcast-text"),
+  broadcastBtn: document.getElementById("broadcast-btn"),
+  broadcastHint: document.getElementById("broadcast-hint"),
 };
 
 const state = {
@@ -161,8 +175,23 @@ function renderHistory(items) {
       meta.textContent = formatDate(item.created_at) + (item.cost ? ` · −${item.cost} 🪙` : "");
     }
 
+    const del = document.createElement("button");
+    del.className = "del-btn";
+    del.textContent = "✕";
+    del.title = t("gen.delete");
+    del.addEventListener("click", async () => {
+      del.disabled = true;
+      try {
+        await api(`/api/download/${item.id}`, { method: "DELETE" });
+        row.remove();
+        if (!el.history.children.length) renderHistory([]);
+      } catch {
+        del.disabled = false;
+      }
+    });
+
     body.append(title, meta);
-    row.append(icon, body);
+    row.append(icon, body, del);
     el.history.appendChild(row);
   }
 }
@@ -319,7 +348,7 @@ async function saveSettings(patch) {
   if (patch.text_model) renderModels();
   if (patch.language) {
     renderCategories();
-    renderModelPicker();
+    if (state.activeCategory) renderModelPicker();
   }
 
   try {
@@ -424,26 +453,49 @@ function initAdmin() {
 
 let isGenerating = false;
 
+/** Три экрана: категории -> модели -> форма генерации. */
+function showScreen(name) {
+  el.screenCategories.hidden = name !== "categories";
+  el.screenModels.hidden = name !== "models";
+  el.screenGenerate.hidden = name !== "generate";
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function catName(cat) {
+  return state.settings.language === "en" ? cat.name_en : cat.name_ru;
+}
+
 function renderCategories() {
-  el.categoryGroup.textContent = "";
+  el.categoryGrid.textContent = "";
 
   for (const cat of state.mediaCategories) {
-    const btn = document.createElement("button");
-    btn.dataset.value = cat.key;
-    btn.textContent = state.settings.language === "en" ? cat.name_en : cat.name_ru;
-    btn.classList.toggle("is-active", cat.key === state.activeCategory);
-    btn.addEventListener("click", () => selectCategory(cat.key));
-    el.categoryGroup.appendChild(btn);
+    const card = document.createElement("button");
+    card.className = "cat-card";
+
+    const icon = document.createElement("span");
+    icon.className = "cat-icon";
+    icon.textContent = cat.icon;
+
+    const name = document.createElement("b");
+    name.textContent = catName(cat);
+
+    const count = document.createElement("span");
+    count.className = "cat-count";
+    const n = state.mediaModels.filter((m) => m.category === cat.key).length;
+    count.textContent = n;
+
+    card.append(icon, name, count);
+    card.addEventListener("click", () => openCategory(cat));
+    el.categoryGrid.appendChild(card);
   }
 }
 
-function selectCategory(key) {
-  state.activeCategory = key;
+function openCategory(cat) {
+  state.activeCategory = cat.key;
   state.activeModel = null;
-  state.uploadedImage = null;
-  el.generateBox.hidden = true;
-  renderCategories();
+  el.modelsHeading.textContent = catName(cat);
   renderModelPicker();
+  showScreen("models");
 }
 
 function renderModelPicker() {
@@ -453,7 +505,6 @@ function renderModelPicker() {
   for (const model of models) {
     const card = document.createElement("button");
     card.className = "model-card";
-    card.classList.toggle("is-active", model.key === state.activeModel?.key);
 
     const head = document.createElement("div");
     head.className = "model-head";
@@ -472,21 +523,62 @@ function renderModelPicker() {
     desc.textContent = state.settings.language === "en" ? model.desc_en : model.desc_ru;
 
     card.append(head, desc);
-    card.addEventListener("click", () => selectModel(model));
+    card.addEventListener("click", () => openModel(model));
     el.modelPicker.appendChild(card);
   }
 }
 
-function selectModel(model) {
+function openModel(model) {
   state.activeModel = model;
-  renderModelPicker();
+  state.uploadedImage = null;
 
-  el.generateBox.hidden = false;
+  el.generateHeading.textContent = model.name;
+  el.generateSub.textContent =
+    state.settings.language === "en" ? model.desc_en : model.desc_ru;
+
+  // Загрузка картинки нужна только редактору и «фото → видео».
+  // Для генерации с нуля этого поля быть не должно.
   el.imageRow.hidden = !model.needs_image;
+  el.imageInput.value = "";
+  el.imagePreview.hidden = true;
+  el.imagePreview.removeAttribute("src");
+
   el.promptRow.hidden = !!model.no_prompt;
+  el.promptInput.value = "";
   el.promptInput.placeholder = t("gen.promptPh");
+
+  el.generateBtn.textContent = `${t("gen.button")} · ${model.cost} 🪙`;
   setHint(el.generateHint, "");
-  el.generateBox.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  showScreen("generate");
+}
+
+function initClearButtons() {
+  el.clearGallery.addEventListener("click", async () => {
+    if (!confirm(t("gen.confirmClear"))) return;
+    try {
+      await api("/api/media/gallery", { method: "DELETE" });
+      renderGallery([]);
+    } catch (err) {
+      setHint(el.generateHint, err.message, "error");
+    }
+  });
+
+  el.clearHistory.addEventListener("click", async () => {
+    if (!confirm(t("gen.confirmClear"))) return;
+    try {
+      await api("/api/history", { method: "DELETE" });
+      renderHistory([]);
+    } catch (err) {
+      setHint(el.hint, err.message, "error");
+    }
+  });
+}
+
+
+function initModelNavigation() {
+  document.querySelectorAll(".back-btn").forEach((btn) => {
+    btn.addEventListener("click", () => showScreen(btn.dataset.back));
+  });
 }
 
 function initImageUpload() {
@@ -541,7 +633,7 @@ async function startGeneration() {
   } finally {
     isGenerating = false;
     el.generateBtn.disabled = false;
-    el.generateBtn.textContent = t("gen.button");
+    el.generateBtn.textContent = `${t("gen.button")} · ${model.cost} 🪙`;
   }
 }
 
@@ -617,7 +709,22 @@ function renderGallery(items) {
       meta.textContent = item.prompt || "";
     }
 
-    card.appendChild(meta);
+    const del = document.createElement("button");
+    del.className = "del-btn";
+    del.textContent = "✕";
+    del.title = t("gen.delete");
+    del.addEventListener("click", async () => {
+      del.disabled = true;
+      try {
+        await api(`/api/media/job/${item.id}`, { method: "DELETE" });
+        card.remove();
+        if (!el.gallery.children.length) renderGallery([]);
+      } catch {
+        del.disabled = false;
+      }
+    });
+
+    card.append(meta, del);
     el.gallery.appendChild(card);
   }
 }
@@ -635,9 +742,122 @@ async function loadMediaCatalog() {
   const data = await api("/api/media/models");
   state.mediaCategories = data.categories || [];
   state.mediaModels = data.items || [];
-  state.activeCategory = state.mediaCategories[0]?.key ?? null;
   renderCategories();
-  renderModelPicker();
+}
+
+/* ---------- Админка: статистика, поиск, рассылка ---------- */
+
+function statCard(labelKey, value) {
+  const box = document.createElement("div");
+  box.className = "stat-card";
+
+  const num = document.createElement("b");
+  num.textContent = value ?? 0;
+
+  const label = document.createElement("span");
+  label.textContent = t(labelKey);
+
+  box.append(num, label);
+  return box;
+}
+
+async function loadAdminStats() {
+  try {
+    const s = await api("/api/admin/stats");
+    el.adminStats.textContent = "";
+
+    el.adminStats.append(
+      statCard("admin.stats.users", s.users_total),
+      statCard("admin.stats.active", s.active_today),
+      statCard("admin.stats.downloads", s.downloads_total),
+      statCard("admin.stats.generations", s.generations_total),
+      statCard("admin.stats.stars", s.stars_total),
+      statCard("admin.stats.balance", s.balance_total),
+      statCard("admin.stats.failed", s.downloads_failed + s.generations_failed),
+    );
+
+    if (s.top_models?.length) {
+      const title = document.createElement("p");
+      title.className = "muted stat-title";
+      title.textContent = t("admin.topModels");
+      el.adminStats.appendChild(title);
+
+      for (const m of s.top_models) {
+        const row = document.createElement("p");
+        row.className = "muted stat-row";
+        row.textContent = `${m.key} — ${m.count}`;
+        el.adminStats.appendChild(row);
+      }
+    }
+  } catch {
+    el.adminStats.textContent = "";
+  }
+}
+
+function initAdminTools() {
+  el.lookupBtn.addEventListener("click", async () => {
+    const id = parseInt(el.lookupUser.value, 10);
+    if (!Number.isFinite(id)) return;
+
+    el.lookupResult.textContent = "";
+    try {
+      const card = await api(`/api/admin/user/${id}`);
+      const rows = [
+        [t("admin.card.balance"), card.balance],
+        [t("admin.card.downloads"), card.downloads],
+        [t("admin.card.generations"), card.generations],
+        [t("admin.card.stars"), card.stars_paid],
+      ];
+      for (const [label, value] of rows) {
+        const p = document.createElement("p");
+        p.className = "muted stat-row";
+        p.textContent = `${label}: ${value}`;
+        el.lookupResult.appendChild(p);
+      }
+    } catch (err) {
+      const p = document.createElement("p");
+      p.className = "hint error";
+      p.textContent = err.message || t("admin.notFound");
+      el.lookupResult.appendChild(p);
+    }
+  });
+
+  el.broadcastBtn.addEventListener("click", async () => {
+    const text = el.broadcastText.value.trim();
+    if (!text) {
+      setHint(el.broadcastHint, t("admin.broadcastEmpty"), "error");
+      return;
+    }
+
+    el.broadcastBtn.disabled = true;
+    setHint(el.broadcastHint, t("admin.broadcastSending"));
+
+    try {
+      const job = await api("/api/admin/broadcast", {
+        method: "POST",
+        body: JSON.stringify({ text }),
+      });
+
+      while (true) {
+        await new Promise((r) => setTimeout(r, 1000));
+        const pr = await api(`/api/admin/broadcast/${job.id}`);
+        setHint(el.broadcastHint, `${pr.sent} / ${pr.total}`);
+        if (pr.done) {
+          setHint(
+            el.broadcastHint,
+            `${t("admin.broadcastDone")} ${pr.sent}, ${t("admin.broadcastFailed")} ${pr.failed}`,
+            "ok",
+          );
+          el.broadcastText.value = "";
+          break;
+        }
+      }
+    } catch (err) {
+      setHint(el.broadcastHint, err.message, "error");
+    } finally {
+      el.broadcastBtn.disabled = false;
+    }
+  });
 }
 
 /* ---------- Старт ---------- */
@@ -647,6 +867,9 @@ async function init() {
   initSettingsControls();
   initAdmin();
   initImageUpload();
+  initModelNavigation();
+  initClearButtons();
+  initAdminTools();
   el.generateBtn.addEventListener("click", () => {
     if (!isGenerating) startGeneration();
   });
@@ -690,7 +913,10 @@ async function init() {
     markSegmented(el.themeGroup, me.settings.theme);
     setHint(el.hint, t("dl.hint"));
 
-    if (me.is_admin) el.adminPanel.hidden = false;
+    if (me.is_admin) {
+      el.adminPanel.hidden = false;
+      loadAdminStats();
+    }
 
     const models = await api("/api/models");
     state.models = models.items || [];
