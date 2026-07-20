@@ -45,6 +45,7 @@ const el = {
   lookupUser: document.getElementById("lookup-user"),
   lookupBtn: document.getElementById("lookup-btn"),
   lookupResult: document.getElementById("lookup-result"),
+  usersList: document.getElementById("users-list"),
   broadcastText: document.getElementById("broadcast-text"),
   broadcastBtn: document.getElementById("broadcast-btn"),
   broadcastHint: document.getElementById("broadcast-hint"),
@@ -794,6 +795,70 @@ async function loadAdminStats() {
   }
 }
 
+function userTitle(u) {
+  const name = [u.first_name, u.last_name].filter(Boolean).join(" ");
+  return name || `ID ${u.user_id}`;
+}
+
+/** Кнопка перехода в профиль. По @username ссылка открывается всегда,
+ *  без него остаётся tg://user?id=... — он срабатывает не во всех клиентах. */
+function profileButton(u) {
+  const btn = document.createElement("button");
+  btn.className = "link-btn";
+
+  if (u.username) {
+    btn.textContent = `@${u.username}`;
+    btn.addEventListener("click", () => {
+      const link = `https://t.me/${u.username}`;
+      if (tg?.openTelegramLink) tg.openTelegramLink(link);
+      else window.open(link, "_blank");
+    });
+  } else {
+    btn.textContent = t("admin.openProfile");
+    btn.addEventListener("click", () => {
+      if (tg?.openTelegramLink) tg.openTelegramLink(`tg://user?id=${u.user_id}`);
+      else window.open(`tg://user?id=${u.user_id}`, "_blank");
+    });
+  }
+
+  return btn;
+}
+
+async function loadAdminUsers() {
+  try {
+    const data = await api("/api/admin/users");
+    el.usersList.textContent = "";
+
+    for (const u of data.items || []) {
+      const row = document.createElement("div");
+      row.className = "user-row";
+
+      const info = document.createElement("div");
+      info.className = "user-info";
+
+      const name = document.createElement("b");
+      name.textContent = userTitle(u);
+
+      const sub = document.createElement("span");
+      sub.textContent = `ID ${u.user_id} · ${u.balance} 🪙`;
+
+      info.append(name, sub);
+      row.append(info, profileButton(u));
+
+      // тап по строке — подставить id в поля выдачи и поиска
+      info.addEventListener("click", () => {
+        el.grantUser.value = u.user_id;
+        el.lookupUser.value = u.user_id;
+        el.lookupBtn.click();
+      });
+
+      el.usersList.appendChild(row);
+    }
+  } catch {
+    el.usersList.textContent = "";
+  }
+}
+
 function initAdminTools() {
   el.lookupBtn.addEventListener("click", async () => {
     const id = parseInt(el.lookupUser.value, 10);
@@ -802,6 +867,19 @@ function initAdminTools() {
     el.lookupResult.textContent = "";
     try {
       const card = await api(`/api/admin/user/${id}`);
+
+      const head = document.createElement("div");
+      head.className = "user-row";
+      const info = document.createElement("div");
+      info.className = "user-info";
+      const name = document.createElement("b");
+      name.textContent = userTitle(card);
+      const sub = document.createElement("span");
+      sub.textContent = card.username ? `@${card.username}` : t("admin.noUsername");
+      info.append(name, sub);
+      head.append(info, profileButton(card));
+      el.lookupResult.appendChild(head);
+
       const rows = [
         [t("admin.card.balance"), card.balance],
         [t("admin.card.downloads"), card.downloads],
@@ -916,6 +994,7 @@ async function init() {
     if (me.is_admin) {
       el.adminPanel.hidden = false;
       loadAdminStats();
+      loadAdminUsers();
     }
 
     const models = await api("/api/models");
