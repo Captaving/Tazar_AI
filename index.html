@@ -11,55 +11,81 @@
 
 <header class="topbar">
   <span class="topbar-title" id="greeting">Downloader Bot</span>
-  <span class="balance" id="balance-chip">
-    <span aria-hidden="true">&#128142;</span><b id="balance-value">&mdash;</b>
+  <span class="balance">
+    <span aria-hidden="true">&#129689;</span><b id="balance-value">&mdash;</b>
   </span>
 </header>
 
 <main>
+  <!-- Модели АИ -->
   <section class="tab" id="tab-models" hidden>
     <div class="empty">
       <p class="empty-icon" aria-hidden="true">&#10024;</p>
-      <h2>Модели АИ</h2>
-      <p>Генерация картинок, видео и аудио по категориям появится здесь следующим шагом.</p>
+      <h2 data-i18n="models.title">Модели АИ</h2>
+      <p data-i18n="models.soon">Генерация картинок, видео и аудио по категориям появится здесь следующим шагом.</p>
     </div>
   </section>
 
+  <!-- Скачивание -->
   <section class="tab" id="tab-download">
     <div class="field">
-      <label for="url-input">Ссылка на видео или пост</label>
+      <label for="url-input" data-i18n="dl.label">Ссылка на видео или пост</label>
       <input id="url-input" type="url" inputmode="url" autocomplete="off" placeholder="https://..." />
-      <button id="download-btn" class="primary">Скачать</button>
-      <p class="hint" id="download-hint">Файл придёт сообщением в чат с ботом. До 500 МБ.</p>
+      <button id="download-btn" class="primary" data-i18n="dl.button">Скачать</button>
+      <div id="quality-list" class="qualities" hidden></div>
+      <p class="hint" id="download-hint"></p>
     </div>
 
-    <h2 class="section-title">История</h2>
-    <div id="history-list" class="history">
-      <p class="muted">Загружаю&hellip;</p>
-    </div>
+    <h2 class="section-title" data-i18n="dl.history">История</h2>
+    <div id="history-list" class="history"></div>
   </section>
 
+  <!-- Настройки -->
   <section class="tab" id="tab-settings" hidden>
-    <div class="empty">
-      <p class="empty-icon" aria-hidden="true">&#9881;&#65039;</p>
-      <h2>Настройки</h2>
-      <p>Язык интерфейса и выбор текстовой модели появятся здесь следующим шагом.</p>
+    <h2 class="section-title" data-i18n="set.language">Язык</h2>
+    <div class="segmented" id="language-group">
+      <button data-value="ru">Русский</button>
+      <button data-value="en">English</button>
+    </div>
+
+    <h2 class="section-title" data-i18n="set.theme">Тема</h2>
+    <div class="segmented" id="theme-group">
+      <button data-value="system" data-i18n="set.theme.system">Системная</button>
+      <button data-value="light" data-i18n="set.theme.light">Светлая</button>
+      <button data-value="dark" data-i18n="set.theme.dark">Тёмная</button>
+    </div>
+
+    <h2 class="section-title" data-i18n="set.model">Модель в чате с ботом</h2>
+    <div id="model-list" class="models"></div>
+
+    <div id="admin-panel" hidden>
+      <h2 class="section-title" data-i18n="admin.title">Админ-панель</h2>
+      <div class="card">
+        <label for="grant-user" data-i18n="admin.user">ID пользователя</label>
+        <input id="grant-user" type="number" inputmode="numeric" placeholder="123456789" />
+        <label for="grant-amount" data-i18n="admin.amount">Сколько жетонов</label>
+        <input id="grant-amount" type="number" inputmode="numeric" placeholder="100" />
+        <button id="grant-btn" class="primary" data-i18n="admin.grant">Начислить</button>
+        <button id="grant-self" class="ghost" data-i18n="admin.self">Себе</button>
+        <p class="hint" id="grant-hint"></p>
+      </div>
     </div>
   </section>
 </main>
 
 <nav class="tabbar" role="tablist">
   <button class="tabbar-btn" data-tab="models" role="tab" aria-selected="false">
-    <span aria-hidden="true">&#10024;</span>Модели АИ
+    <span aria-hidden="true">&#10024;</span><i data-i18n="nav.models">Модели АИ</i>
   </button>
   <button class="tabbar-btn is-active" data-tab="download" role="tab" aria-selected="true">
-    <span aria-hidden="true">&#11015;&#65039;</span>Скачивание
+    <span aria-hidden="true">&#11015;&#65039;</span><i data-i18n="nav.download">Скачивание</i>
   </button>
   <button class="tabbar-btn" data-tab="settings" role="tab" aria-selected="false">
-    <span aria-hidden="true">&#9881;&#65039;</span>Настройки
+    <span aria-hidden="true">&#9881;&#65039;</span><i data-i18n="nav.settings">Настройки</i>
   </button>
 </nav>
 
+<script src="i18n.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
