@@ -40,6 +40,11 @@ html[data-theme="light"] {
 
 * { box-sizing: border-box; }
 
+/* Атрибут hidden должен побеждать любые display из наших правил.
+   Без !important селекторы по id (#image-row { display: flex }) оказываются
+   сильнее браузерного [hidden] { display: none } — и скрытые блоки видны. */
+[hidden] { display: none !important; }
+
 body {
   margin: 0;
   min-height: 100vh;
@@ -64,7 +69,13 @@ body {
   border-bottom: 1px solid color-mix(in srgb, var(--hint) 22%, transparent);
 }
 
-.topbar-title { font-weight: 600; }
+.topbar-title {
+  font-weight: 700;
+  background: var(--brand-grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
 
 .balance {
   display: inline-flex;
@@ -272,18 +283,31 @@ button.ghost {
   flex-direction: column;
   align-items: flex-start;
   gap: 6px;
-  padding: 18px 14px;
+  padding: 20px 16px;
   border: 0;
-  border-radius: 16px;
-  background: var(--card);
+  border-radius: 18px;
+  /* фирменное свечение из логотипа: фиолетовое слева сверху, голубое справа снизу */
+  background:
+    radial-gradient(120% 100% at 0% 0%, color-mix(in srgb, var(--brand-1) 22%, transparent), transparent 60%),
+    radial-gradient(120% 100% at 100% 100%, color-mix(in srgb, var(--brand-2) 20%, transparent), transparent 60%),
+    var(--card);
   color: var(--text);
   font: inherit;
   text-align: left;
   cursor: pointer;
   position: relative;
+  overflow: hidden;
 }
 
-.cat-icon { font-size: 26px; line-height: 1; }
+.cat-card b { font-size: 15px; }
+
+.cat-card:active { transform: scale(0.98); }
+
+.cat-icon {
+  font-size: 28px;
+  line-height: 1;
+  filter: drop-shadow(0 0 10px color-mix(in srgb, var(--brand-1) 55%, transparent));
+}
 
 /* тонкая фирменная обводка на карточках категорий */
 .cat-card::after {
@@ -296,7 +320,7 @@ button.ghost {
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
-  opacity: 0.45;
+  opacity: 0.55;
   pointer-events: none;
 }
 
@@ -344,6 +368,9 @@ button.ghost {
 .stat-row { grid-column: 1 / -1; margin: 2px 0; font-size: 13px; }
 
 #lookup-result:not(:empty) { margin-top: 4px; }
+
+#lyrics-row { display: flex; flex-direction: column; gap: 8px; }
+#lyrics-input { font-size: 15px; line-height: 1.45; }
 
 .user-row {
   display: flex;
@@ -645,3 +672,5 @@ input[type="file"] {
 #audio-row { display: flex; flex-direction: column; gap: 8px; }
 
 .gallery-item audio { width: 100%; margin-top: 4px; }
+
+.gallery-actions { margin-top: 6px; }

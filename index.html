@@ -85,8 +85,13 @@
         </div>
 
         <div id="prompt-row">
-          <label for="prompt-input" data-i18n="gen.prompt">Что сгенерировать</label>
+          <label for="prompt-input" id="prompt-label" data-i18n="gen.prompt">Что сгенерировать</label>
           <textarea id="prompt-input" rows="3" placeholder="..."></textarea>
+        </div>
+
+        <div id="lyrics-row" hidden>
+          <label for="lyrics-input" data-i18n="gen.lyrics">Текст песни</label>
+          <textarea id="lyrics-input" rows="5" placeholder="..."></textarea>
         </div>
 
         <div id="audio-row" hidden>

@@ -40,6 +40,9 @@ const el = {
   splash: document.getElementById("splash"),
   promptRow: document.getElementById("prompt-row"),
   promptInput: document.getElementById("prompt-input"),
+  promptLabel: document.getElementById("prompt-label"),
+  lyricsRow: document.getElementById("lyrics-row"),
+  lyricsInput: document.getElementById("lyrics-input"),
   generateBtn: document.getElementById("generate-btn"),
   generateHint: document.getElementById("generate-hint"),
   gallery: document.getElementById("gallery"),
@@ -74,6 +77,7 @@ const state = {
   uploadedImage: null,
   uploadedAudio: null,
   genParams: {},
+  freeGeneration: false,
 };
 
 /* ---------- Утилиты ---------- */
@@ -588,13 +592,24 @@ function openModel(model) {
   el.audioInput.value = "";
   state.uploadedAudio = null;
 
+  // Текст песни — только у моделей с вокалом
+  el.lyricsRow.hidden = !model.lyrics;
+  el.lyricsInput.value = "";
+  el.lyricsInput.placeholder = t("gen.lyricsPh");
+
   renderParams(model);
 
   el.promptRow.hidden = !!model.no_prompt;
   el.promptInput.value = "";
-  el.promptInput.placeholder = t("gen.promptPh");
 
-  el.generateBtn.textContent = `${t("gen.button")} · ${model.cost} 🪙`;
+  // У музыки промпт описывает стиль, а не содержимое картинки
+  const styleMode = model.prompt_label === "style";
+  el.promptLabel.textContent = styleMode ? t("gen.promptStyle") : t("gen.prompt");
+  el.promptInput.placeholder = styleMode ? t("gen.promptStylePh") : t("gen.promptPh");
+
+  el.generateBtn.textContent = state.freeGeneration
+    ? `${t("gen.button")} · ${t("gen.firstFree")}`
+    : `${t("gen.button")} · ${model.cost} 🪙`;
   setHint(el.generateHint, "");
   showScreen("generate");
 }
@@ -642,7 +657,9 @@ function renderParams(model) {
     for (const option of param.options) {
       const btn = document.createElement("button");
       btn.dataset.value = String(option);
-      btn.textContent = param.name === "duration" ? `${option} сек` : String(option);
+      btn.textContent = param.name.includes("duration")
+        ? `${option} ${state.settings.language === "en" ? "s" : "сек"}`
+        : String(option);
       btn.classList.toggle("is-active", option === param.default);
       btn.addEventListener("click", () => {
         state.genParams[param.name] = option;
@@ -775,6 +792,7 @@ async function startGeneration() {
         prompt,
         image: state.uploadedImage || undefined,
         audio: state.uploadedAudio || undefined,
+        lyrics: el.lyricsInput.value.trim() || undefined,
         params: state.genParams,
       }),
     });
@@ -786,7 +804,9 @@ async function startGeneration() {
   } finally {
     isGenerating = false;
     el.generateBtn.disabled = false;
-    el.generateBtn.textContent = `${t("gen.button")} · ${model.cost} 🪙`;
+    el.generateBtn.textContent = state.freeGeneration
+    ? `${t("gen.button")} · ${t("gen.firstFree")}`
+    : `${t("gen.button")} · ${model.cost} 🪙`;
   }
 }
 
@@ -809,6 +829,7 @@ async function pollGeneration(id) {
     loadGallery();
 
     if (job.status === "done") {
+      state.freeGeneration = false;
       setHint(el.generateHint, t("gen.done"), "ok");
       tg?.HapticFeedback?.notificationOccurred?.("success");
     } else {
@@ -882,8 +903,42 @@ function renderGallery(items) {
       }
     });
 
-    card.append(meta, del);
+    const actions = document.createElement("div");
+    actions.className = "gallery-actions";
+
+    // Повторить с тем же промптом — самый частый сценарий после неудачного результата
+    if (item.prompt) {
+      const again = document.createElement("button");
+      again.className = "link-btn";
+      again.textContent = t("gen.again");
+      again.addEventListener("click", () => repeatGeneration(item));
+      actions.appendChild(again);
+    }
+
+    card.append(meta, actions, del);
     el.gallery.appendChild(card);
+  }
+}
+
+/** Открывает форму модели с уже заполненным промптом. */
+function repeatGeneration(item) {
+  const model = state.mediaModels.find((m) => m.key === item.model_key);
+  if (!model) {
+    setHint(el.generateHint, t("gen.modelGone"), "error");
+    return;
+  }
+
+  state.activeCategory = model.category;
+  if (model.category === "text") {
+    openChat(model);
+    return;
+  }
+
+  openModel(model);
+  el.promptInput.value = item.prompt || "";
+  // картинку и аудио пользователь приложит заново: у нас их копий нет
+  if (model.needs_image || model.needs_audio) {
+    setHint(el.generateHint, t("gen.reattach"));
   }
 }
 
@@ -957,7 +1012,7 @@ function addChatBubble(role, text, citations = []) {
 async function loadChatHistory() {
   el.chatLog.textContent = "";
   try {
-    const data = await api("/api/chat");
+    const data = await api(`/api/chat?model=${encodeURIComponent(state.activeModel?.key || "")}`);
     if (!data.items?.length) {
       const p = document.createElement("p");
       p.className = "muted";
@@ -1021,7 +1076,9 @@ function initChat() {
 
   el.chatClear.addEventListener("click", async () => {
     try {
-      await api("/api/chat", { method: "DELETE" });
+      await api(`/api/chat?model=${encodeURIComponent(state.activeModel?.key || "")}`, {
+        method: "DELETE",
+      });
       loadChatHistory();
       setHint(el.chatHint, "");
     } catch (err) {
@@ -1280,6 +1337,7 @@ async function init() {
     const me = await api("/api/me");
     state.userId = me.user_id;
     state.settings = me.settings;
+    state.freeGeneration = !!me.free_generation;
 
     el.greeting.textContent = `${me.first_name || "…"}`;
     setBalance(me.balance);
