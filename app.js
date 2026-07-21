@@ -34,6 +34,10 @@ const el = {
   imageRow: document.getElementById("image-row"),
   imageInput: document.getElementById("image-input"),
   imagePreview: document.getElementById("image-preview"),
+  audioRow: document.getElementById("audio-row"),
+  audioInput: document.getElementById("audio-input"),
+  paramsRow: document.getElementById("params-row"),
+  splash: document.getElementById("splash"),
   promptRow: document.getElementById("prompt-row"),
   promptInput: document.getElementById("prompt-input"),
   generateBtn: document.getElementById("generate-btn"),
@@ -68,6 +72,8 @@ const state = {
   activeCategory: null,
   activeModel: null,
   uploadedImage: null,
+  uploadedAudio: null,
+  genParams: {},
 };
 
 /* ---------- Утилиты ---------- */
@@ -578,6 +584,12 @@ function openModel(model) {
   el.imagePreview.hidden = true;
   el.imagePreview.removeAttribute("src");
 
+  el.audioRow.hidden = !model.needs_audio;
+  el.audioInput.value = "";
+  state.uploadedAudio = null;
+
+  renderParams(model);
+
   el.promptRow.hidden = !!model.no_prompt;
   el.promptInput.value = "";
   el.promptInput.placeholder = t("gen.promptPh");
@@ -609,6 +621,57 @@ function initClearButtons() {
   });
 }
 
+
+/** Выбор длительности и качества — только у моделей, которые их принимают. */
+function renderParams(model) {
+  el.paramsRow.textContent = "";
+  state.genParams = {};
+
+  for (const param of model.params || []) {
+    state.genParams[param.name] = param.default;
+
+    const wrap = document.createElement("div");
+    wrap.className = "param-block";
+
+    const label = document.createElement("label");
+    label.textContent = t(`gen.${param.name}`);
+
+    const group = document.createElement("div");
+    group.className = "segmented";
+
+    for (const option of param.options) {
+      const btn = document.createElement("button");
+      btn.dataset.value = String(option);
+      btn.textContent = param.name === "duration" ? `${option} сек` : String(option);
+      btn.classList.toggle("is-active", option === param.default);
+      btn.addEventListener("click", () => {
+        state.genParams[param.name] = option;
+        group.querySelectorAll("button").forEach((b) => {
+          b.classList.toggle("is-active", b === btn);
+        });
+      });
+      group.appendChild(btn);
+    }
+
+    wrap.append(label, group);
+    el.paramsRow.appendChild(wrap);
+  }
+}
+
+function initAudioUpload() {
+  el.audioInput.addEventListener("change", () => {
+    const file = el.audioInput.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      state.uploadedAudio = reader.result;
+      setHint(el.generateHint, t("gen.audioReady"));
+    };
+    reader.onerror = () => setHint(el.generateHint, t("gen.needAudio"), "error");
+    reader.readAsDataURL(file);
+  });
+}
 
 function initModelNavigation() {
   document.querySelectorAll(".back-btn").forEach((btn) => {
@@ -694,6 +757,10 @@ async function startGeneration() {
     setHint(el.generateHint, t("gen.needImage"), "error");
     return;
   }
+  if (model.needs_audio && !state.uploadedAudio) {
+    setHint(el.generateHint, t("gen.needAudio"), "error");
+    return;
+  }
 
   isGenerating = true;
   el.generateBtn.disabled = true;
@@ -707,6 +774,8 @@ async function startGeneration() {
         model: model.key,
         prompt,
         image: state.uploadedImage || undefined,
+        audio: state.uploadedAudio || undefined,
+        params: state.genParams,
       }),
     });
     setHint(el.generateHint, t("gen.working"));
@@ -774,6 +843,11 @@ function renderGallery(items) {
         video.controls = true;
         video.playsInline = true;
         card.appendChild(video);
+      } else if (item.output_kind === "audio") {
+        const audio = document.createElement("audio");
+        audio.src = item.output_url;
+        audio.controls = true;
+        card.appendChild(audio);
       } else {
         const img = document.createElement("img");
         img.src = item.output_url;
@@ -1169,6 +1243,7 @@ async function init() {
   initClearButtons();
   initChat();
   initAdminTools();
+  initAudioUpload();
   el.generateBtn.addEventListener("click", () => {
     if (!isGenerating) startGeneration();
   });
@@ -1178,6 +1253,7 @@ async function init() {
   if (!tg) {
     setHint(el.hint, t("err.telegramOnly"), "error");
     el.downloadBtn.disabled = true;
+    hideSplash();
     return;
   }
 
@@ -1187,6 +1263,7 @@ async function init() {
   if (!tg.initData) {
     setHint(el.hint, t("err.noInitData"), "error");
     el.downloadBtn.disabled = true;
+    hideSplash();
     return;
   }
 
@@ -1225,10 +1302,18 @@ async function init() {
     await loadMediaCatalog();
     loadGallery();
     loadHistory();
+    hideSplash();
   } catch (err) {
     setHint(el.hint, `${t("err.noServer")}: ${err.message}`, "error");
     el.downloadBtn.disabled = true;
+    hideSplash();
   }
+}
+
+function hideSplash() {
+  el.splash.classList.add("is-hidden");
+  // ждём конца анимации, потом убираем из потока
+  setTimeout(() => (el.splash.hidden = true), 450);
 }
 
 init();

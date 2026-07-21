@@ -1,5 +1,10 @@
 /* Цвета берём из темы Telegram; при явном выборе светлой/тёмной — переопределяем */
 :root {
+  /* Палитра с логотипа: тёмно-синий фон, градиент фиолетовый -> голубой */
+  --brand-1: #a855f7;
+  --brand-2: #22d3ee;
+  --brand-grad: linear-gradient(135deg, var(--brand-1), var(--brand-2));
+
   --bg: var(--tg-theme-bg-color, #0e0e10);
   --text: var(--tg-theme-text-color, #f2f2f2);
   --hint: var(--tg-theme-hint-color, #8a8a8e);
@@ -21,12 +26,16 @@ html[data-theme="light"] {
 }
 
 html[data-theme="dark"] {
-  --bg: #0e0e10;
-  --text: #f2f2f2;
-  --hint: #8a8a8e;
-  --button: #4c8bf5;
+  --bg: #0d1020;
+  --text: #f2f3f8;
+  --hint: #8b8fa6;
+  --button: #a855f7;
   --button-text: #ffffff;
-  --card: #1c1c1e;
+  --card: #171b30;
+}
+
+html[data-theme="light"] {
+  --button: #8b3ff0;
 }
 
 * { box-sizing: border-box; }
@@ -92,7 +101,7 @@ button.primary {
   padding: 14px;
   border: 0;
   border-radius: 12px;
-  background: var(--button);
+  background: var(--brand-grad);
   color: var(--button-text);
   font-size: 16px;
   font-weight: 600;
@@ -175,7 +184,7 @@ button.ghost {
   cursor: pointer;
 }
 
-.model-card.is-active { border-color: var(--button); }
+.model-card.is-active { border-color: var(--brand-1); }
 
 .model-head {
   display: flex;
@@ -275,6 +284,21 @@ button.ghost {
 }
 
 .cat-icon { font-size: 26px; line-height: 1; }
+
+/* тонкая фирменная обводка на карточках категорий */
+.cat-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 16px;
+  padding: 1px;
+  background: var(--brand-grad);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0.45;
+  pointer-events: none;
+}
 
 .cat-count {
   position: absolute;
@@ -534,10 +558,90 @@ input[type="file"] {
 
 .tabbar-btn span { font-size: 19px; line-height: 1; }
 .tabbar-btn i { font-style: normal; }
-.tabbar-btn.is-active { color: var(--button); }
+.tabbar-btn.is-active { color: var(--brand-1); }
 
 @media (prefers-reduced-motion: no-preference) {
   .tabbar-btn, button.primary, .model-card, .segmented button {
     transition: opacity 0.15s ease, color 0.15s ease, border-color 0.15s ease;
   }
 }
+
+
+/* Заставка при запуске */
+.splash {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  background: var(--bg);
+  transition: opacity 0.4s ease;
+}
+
+.splash.is-hidden { opacity: 0; pointer-events: none; }
+
+.splash-logo { width: 128px; height: 128px; }
+
+.splash-logo .ring {
+  transform-origin: center;
+  animation: tz-spin 2.4s linear infinite;
+  opacity: 0.65;
+  stroke-dasharray: 90 40;
+}
+
+.splash-logo .hex {
+  transform-origin: center;
+  animation: tz-pulse 1.8s ease-in-out infinite;
+}
+
+.splash-logo .mark {
+  fill: var(--text);
+  font-size: 42px;
+  font-weight: 700;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.splash-title {
+  margin: 14px 0 0;
+  font-size: 22px;
+  font-weight: 700;
+  background: var(--brand-grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.splash-sub { margin: 2px 0 0; font-size: 12px; color: var(--hint); }
+
+@keyframes tz-spin { to { transform: rotate(360deg); } }
+
+@keyframes tz-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.75; transform: scale(0.94); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .splash-logo .ring, .splash-logo .hex { animation: none; }
+}
+
+/* Параметры генерации */
+.param-block {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+#params-row {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+#params-row:not(:empty) { margin-top: 2px; }
+
+#audio-row { display: flex; flex-direction: column; gap: 8px; }
+
+.gallery-item audio { width: 100%; margin-top: 4px; }
