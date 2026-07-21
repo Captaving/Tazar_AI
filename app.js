@@ -64,6 +64,10 @@ const el = {
   broadcastText: document.getElementById("broadcast-text"),
   broadcastBtn: document.getElementById("broadcast-btn"),
   broadcastHint: document.getElementById("broadcast-hint"),
+  reportText: document.getElementById("report-text"),
+  reportBtn: document.getElementById("report-btn"),
+  reportHint: document.getElementById("report-hint"),
+  reportsList: document.getElementById("reports-list"),
 };
 
 const state = {
@@ -1210,6 +1214,67 @@ async function loadAdminUsers() {
   }
 }
 
+function initReport() {
+  el.reportText.placeholder = t("report.placeholder");
+
+  el.reportBtn.addEventListener("click", async () => {
+    const text = el.reportText.value.trim();
+    if (!text) {
+      setHint(el.reportHint, t("report.empty"), "error");
+      return;
+    }
+
+    el.reportBtn.disabled = true;
+    setHint(el.reportHint, t("report.sending"));
+
+    try {
+      await api("/api/report", { method: "POST", body: JSON.stringify({ text }) });
+      el.reportText.value = "";
+      setHint(el.reportHint, t("report.sent"), "ok");
+      tg?.HapticFeedback?.notificationOccurred?.("success");
+    } catch (err) {
+      setHint(el.reportHint, err.message, "error");
+    } finally {
+      el.reportBtn.disabled = false;
+    }
+  });
+}
+
+async function loadAdminReports() {
+  try {
+    const data = await api("/api/admin/reports");
+    el.reportsList.textContent = "";
+
+    if (!data.items?.length) {
+      const p = document.createElement("p");
+      p.className = "muted";
+      p.textContent = t("admin.noReports");
+      el.reportsList.appendChild(p);
+      return;
+    }
+
+    for (const item of data.items) {
+      const row = document.createElement("div");
+      row.className = "report-row";
+
+      const body = document.createElement("p");
+      body.className = "report-text";
+      // текст пришёл от пользователя — только textContent
+      body.textContent = item.text;
+
+      const meta = document.createElement("p");
+      meta.className = "muted stat-row";
+      const who = item.username ? `@${item.username}` : item.first_name || `ID ${item.user_id}`;
+      meta.textContent = `${who} · ${formatDate(item.created_at)}`;
+
+      row.append(body, meta);
+      el.reportsList.appendChild(row);
+    }
+  } catch {
+    el.reportsList.textContent = "";
+  }
+}
+
 function initAdminTools() {
   el.lookupBtn.addEventListener("click", async () => {
     const id = parseInt(el.lookupUser.value, 10);
@@ -1301,6 +1366,7 @@ async function init() {
   initChat();
   initAdminTools();
   initAudioUpload();
+  initReport();
   el.generateBtn.addEventListener("click", () => {
     if (!isGenerating) startGeneration();
   });
@@ -1351,6 +1417,7 @@ async function init() {
       el.adminPanel.hidden = false;
       loadAdminStats();
       loadAdminUsers();
+      loadAdminReports();
     }
 
     const models = await api("/api/models");

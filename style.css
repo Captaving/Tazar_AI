@@ -370,6 +370,22 @@ button.ghost {
 #lookup-result:not(:empty) { margin-top: 4px; }
 
 #lyrics-row { display: flex; flex-direction: column; gap: 8px; }
+
+.report-row {
+  padding: 9px 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--hint) 16%, transparent);
+}
+
+.report-row:last-child { border-bottom: 0; }
+
+.report-text {
+  margin: 0 0 3px;
+  font-size: 14px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+#reports-list { max-height: 340px; overflow-y: auto; }
 #lyrics-input { font-size: 15px; line-height: 1.45; }
 
 .user-row {

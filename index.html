@@ -142,6 +142,14 @@
     <h2 class="section-title" data-i18n="set.model">Модель в чате с ботом</h2>
     <div id="model-list" class="models"></div>
 
+    <h2 class="section-title" data-i18n="report.title">Сообщить о проблеме</h2>
+    <div class="card">
+      <label for="report-text" data-i18n="report.label">Что случилось</label>
+      <textarea id="report-text" rows="4" placeholder="..."></textarea>
+      <button id="report-btn" class="ghost" data-i18n="report.send">Отправить</button>
+      <p class="hint" id="report-hint"></p>
+    </div>
+
     <div id="admin-panel" hidden>
       <h2 class="section-title" data-i18n="admin.title">Админ-панель</h2>
 
@@ -168,6 +176,11 @@
       <div class="card">
         <b data-i18n="admin.recent">Последние пользователи</b>
         <div id="users-list"></div>
+      </div>
+
+      <div class="card">
+        <b data-i18n="admin.reports">Обращения</b>
+        <div id="reports-list"></div>
       </div>
 
       <div class="card">
