@@ -36,7 +36,25 @@
       <div id="model-picker" class="models"></div>
     </div>
 
-    <!-- Шаг 3: генерация -->
+    <!-- Шаг 3а: чат с текстовой моделью -->
+    <div id="screen-chat" hidden>
+      <div class="chat-head">
+        <button class="back-btn" data-back="models">&larr; <span data-i18n="gen.backModels">К моделям</span></button>
+        <button id="chat-clear" class="link-btn" data-i18n="chat.clear">Очистить</button>
+      </div>
+      <h2 class="screen-title" id="chat-heading"></h2>
+      <p class="screen-sub" id="chat-sub"></p>
+
+      <div id="chat-log" class="chat-log"></div>
+
+      <div class="chat-input">
+        <textarea id="chat-text" rows="2" placeholder="..."></textarea>
+        <button id="chat-send" class="primary" data-i18n="chat.send">Отправить</button>
+      </div>
+      <p class="hint" id="chat-hint"></p>
+    </div>
+
+    <!-- Шаг 3б: генерация -->
     <div id="screen-generate" hidden>
       <button class="back-btn" data-back="models">&larr; <span data-i18n="gen.backModels">К моделям</span></button>
       <h2 class="screen-title" id="generate-heading"></h2>

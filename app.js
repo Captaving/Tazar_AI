@@ -39,6 +39,14 @@ const el = {
   generateBtn: document.getElementById("generate-btn"),
   generateHint: document.getElementById("generate-hint"),
   gallery: document.getElementById("gallery"),
+  screenChat: document.getElementById("screen-chat"),
+  chatHeading: document.getElementById("chat-heading"),
+  chatSub: document.getElementById("chat-sub"),
+  chatLog: document.getElementById("chat-log"),
+  chatText: document.getElementById("chat-text"),
+  chatSend: document.getElementById("chat-send"),
+  chatClear: document.getElementById("chat-clear"),
+  chatHint: document.getElementById("chat-hint"),
   clearGallery: document.getElementById("clear-gallery"),
   clearHistory: document.getElementById("clear-history"),
   adminStats: document.getElementById("admin-stats"),
@@ -74,16 +82,26 @@ function setBalance(value) {
 }
 
 async function api(path, options = {}) {
-  const resp = await fetch(`${API_BASE}${path}`, {
+  let resp;
+  try {
+    resp = await fetch(`${API_BASE}${path}`, {
     ...options,
     headers: {
       ...(options.headers || {}),
       "Content-Type": "application/json",
       Authorization: `tma ${tg.initData}`,
     },
-  });
+    });
+  } catch {
+    // сюда попадаем при обрыве связи и когда запрос отрезали по размеру
+    throw new Error(t("err.network"));
+  }
+
   const data = await resp.json().catch(() => ({}));
-  if (!resp.ok) throw new Error(data.error || `Ошибка ${resp.status}`);
+  if (!resp.ok) {
+    if (resp.status === 413) throw new Error(t("err.tooLarge"));
+    throw new Error(data.error || `Ошибка ${resp.status}`);
+  }
   return data;
 }
 
@@ -244,7 +262,10 @@ async function checkQualities() {
     }
 
     renderQualities(options);
-    setHint(el.hint, t("dl.pickQuality"));
+    setHint(
+      el.hint,
+      options.some((o) => o.too_big) ? t("dl.tooBigWarn") : t("dl.pickQuality"),
+    );
   } catch (err) {
     setHint(el.hint, err.message, "error");
   } finally {
@@ -258,8 +279,8 @@ function renderQualities(options) {
 
   for (const opt of options) {
     const btn = document.createElement("button");
-    btn.className = "quality-btn";
-    btn.textContent = opt.label + formatSize(opt.size);
+    btn.className = opt.too_big ? "quality-btn is-big" : "quality-btn";
+    btn.textContent = opt.label + formatSize(opt.size) + (opt.too_big ? " ⚠️" : "");
     btn.addEventListener("click", () => {
       if (!isDownloading) startDownload(opt.id);
     });
@@ -459,6 +480,7 @@ function showScreen(name) {
   el.screenCategories.hidden = name !== "categories";
   el.screenModels.hidden = name !== "models";
   el.screenGenerate.hidden = name !== "generate";
+  el.screenChat.hidden = name !== "chat";
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
@@ -514,8 +536,14 @@ function renderModelPicker() {
     name.textContent = model.name;
 
     const price = document.createElement("span");
-    price.className = "badge";
-    price.textContent = `${model.cost} 🪙`;
+    price.className = model.cost === 0 ? "badge free" : "badge";
+    if (model.cost === 0) {
+      price.textContent = t("chat.free");
+    } else if (model.category === "text") {
+      price.textContent = `${model.cost} 🪙 / ${model.requests_per_jeton}`;
+    } else {
+      price.textContent = `${model.cost} 🪙`;
+    }
 
     head.append(name, price);
 
@@ -531,6 +559,12 @@ function renderModelPicker() {
 
 function openModel(model) {
   state.activeModel = model;
+
+  if (model.category === "text") {
+    openChat(model);
+    return;
+  }
+
   state.uploadedImage = null;
 
   el.generateHeading.textContent = model.name;
@@ -582,19 +616,68 @@ function initModelNavigation() {
   });
 }
 
+// Фото с телефона — это 5-10 МБ, а в base64 ещё на треть больше. Такой запрос
+// режется на полпути (nginx, лимиты сервера) и падает с «Load failed».
+// Ужимаем в браузере: моделям больше 2048px всё равно не нужно.
+const MAX_IMAGE_SIDE = 2048;
+const IMAGE_QUALITY = 0.85;
+
+function downscaleImage(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      const img = new Image();
+
+      img.onload = () => {
+        const scale = Math.min(1, MAX_IMAGE_SIDE / Math.max(img.width, img.height));
+        if (scale === 1 && file.size < 1_000_000) {
+          resolve(reader.result); // уже небольшая — пересжимать смысла нет
+          return;
+        }
+
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.round(img.width * scale);
+        canvas.height = Math.round(img.height * scale);
+
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+        try {
+          resolve(canvas.toDataURL("image/jpeg", IMAGE_QUALITY));
+        } catch (err) {
+          reject(err);
+        }
+      };
+
+      img.onerror = () => reject(new Error("broken image"));
+      img.src = reader.result;
+    };
+
+    reader.onerror = () => reject(new Error("read failed"));
+    reader.readAsDataURL(file);
+  });
+}
+
 function initImageUpload() {
-  el.imageInput.addEventListener("change", () => {
+  el.imageInput.addEventListener("change", async () => {
     const file = el.imageInput.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      state.uploadedImage = reader.result;
-      el.imagePreview.src = reader.result;
+    setHint(el.generateHint, t("gen.imageProcessing"));
+    try {
+      const dataUri = await downscaleImage(file);
+      state.uploadedImage = dataUri;
+      el.imagePreview.src = dataUri;
       el.imagePreview.hidden = false;
-    };
-    reader.onerror = () => setHint(el.generateHint, t("gen.needImage"), "error");
-    reader.readAsDataURL(file);
+
+      const kb = Math.round((dataUri.length * 3) / 4 / 1024);
+      setHint(el.generateHint, `${t("gen.imageReady")} · ${kb} КБ`);
+    } catch {
+      state.uploadedImage = null;
+      el.imagePreview.hidden = true;
+      setHint(el.generateHint, t("gen.imageBad"), "error");
+    }
   });
 }
 
@@ -746,6 +829,133 @@ async function loadMediaCatalog() {
   renderCategories();
 }
 
+/* ---------- Чат с текстовой моделью ---------- */
+
+let isChatting = false;
+
+function openChat(model) {
+  state.activeModel = model;
+  el.chatHeading.textContent = model.name;
+
+  const desc = state.settings.language === "en" ? model.desc_en : model.desc_ru;
+  el.chatSub.textContent =
+    model.cost === 0
+      ? `${desc} · ${t("chat.free")}`
+      : `${desc} · ${t("chat.pack")} ${model.requests_per_jeton}`;
+
+  el.chatText.placeholder = t("chat.placeholder");
+  setHint(el.chatHint, "");
+  showScreen("chat");
+  loadChatHistory();
+}
+
+function addChatBubble(role, text, citations = []) {
+  const bubble = document.createElement("div");
+  bubble.className = role === "user" ? "bubble bubble-user" : "bubble bubble-bot";
+  // textContent: ответ модели и текст пользователя в разметку не пускаем
+  bubble.textContent = text;
+
+  if (citations.length) {
+    const box = document.createElement("div");
+    box.className = "bubble-sources";
+    box.textContent = `${t("chat.sources")}: `;
+
+    citations.forEach((url, i) => {
+      const link = document.createElement("a");
+      link.href = url;
+      link.textContent = i + 1;
+      link.addEventListener("click", (e) => {
+        e.preventDefault();
+        if (tg?.openLink) tg.openLink(url);
+        else window.open(url, "_blank");
+      });
+      box.append(link, document.createTextNode(" "));
+    });
+
+    bubble.appendChild(box);
+  }
+
+  el.chatLog.appendChild(bubble);
+  el.chatLog.scrollTop = el.chatLog.scrollHeight;
+  return bubble;
+}
+
+async function loadChatHistory() {
+  el.chatLog.textContent = "";
+  try {
+    const data = await api("/api/chat");
+    if (!data.items?.length) {
+      const p = document.createElement("p");
+      p.className = "muted";
+      p.textContent = t("chat.empty");
+      el.chatLog.appendChild(p);
+      return;
+    }
+    for (const msg of data.items) addChatBubble(msg.role, msg.content);
+  } catch {
+    el.chatLog.textContent = "";
+  }
+}
+
+async function sendChatMessage() {
+  const text = el.chatText.value.trim();
+  if (!text || !state.activeModel) return;
+
+  isChatting = true;
+  el.chatSend.disabled = true;
+  el.chatSend.textContent = t("chat.sending");
+
+  // пустую подсказку убираем перед первым сообщением
+  el.chatLog.querySelector(".muted")?.remove();
+  addChatBubble("user", text);
+  el.chatText.value = "";
+
+  try {
+    const res = await api("/api/chat", {
+      method: "POST",
+      body: JSON.stringify({ text, model: state.activeModel.key }),
+    });
+
+    addChatBubble("assistant", res.answer, res.citations || []);
+    setBalance(res.balance);
+
+    setHint(
+      el.chatHint,
+      res.remaining >= 0 ? `${t("chat.left")} ${res.remaining}` : "",
+    );
+  } catch (err) {
+    setHint(el.chatHint, err.message, "error");
+  } finally {
+    isChatting = false;
+    el.chatSend.disabled = false;
+    el.chatSend.textContent = t("chat.send");
+  }
+}
+
+function initChat() {
+  el.chatSend.addEventListener("click", () => {
+    if (!isChatting) sendChatMessage();
+  });
+
+  el.chatText.addEventListener("keydown", (e) => {
+    // Enter отправляет, Shift+Enter переносит строку
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      if (!isChatting) sendChatMessage();
+    }
+  });
+
+  el.chatClear.addEventListener("click", async () => {
+    try {
+      await api("/api/chat", { method: "DELETE" });
+      loadChatHistory();
+      setHint(el.chatHint, "");
+    } catch (err) {
+      setHint(el.chatHint, err.message, "error");
+    }
+  });
+}
+
 /* ---------- Админка: статистика, поиск, рассылка ---------- */
 
 function statCard(labelKey, value) {
@@ -814,10 +1024,20 @@ function profileButton(u) {
       else window.open(link, "_blank");
     });
   } else {
+    // Без username прямой ссылки нет: tg://user?id=... из мини-аппа
+    // открывается ненадёжно. Просим бота прислать упоминание в чат —
+    // по нему профиль открывается всегда.
     btn.textContent = t("admin.openProfile");
-    btn.addEventListener("click", () => {
-      if (tg?.openTelegramLink) tg.openTelegramLink(`tg://user?id=${u.user_id}`);
-      else window.open(`tg://user?id=${u.user_id}`, "_blank");
+    btn.addEventListener("click", async () => {
+      btn.disabled = true;
+      try {
+        await api(`/api/admin/mention/${u.user_id}`, { method: "POST" });
+        btn.textContent = t("admin.mentionSent");
+      } catch {
+        btn.textContent = t("admin.openProfile");
+      } finally {
+        btn.disabled = false;
+      }
     });
   }
 
@@ -947,6 +1167,7 @@ async function init() {
   initImageUpload();
   initModelNavigation();
   initClearButtons();
+  initChat();
   initAdminTools();
   el.generateBtn.addEventListener("click", () => {
     if (!isGenerating) startGeneration();
