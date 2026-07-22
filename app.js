@@ -67,6 +67,7 @@ const el = {
   chatHint: document.getElementById("chat-hint"),
   chatImage: document.getElementById("chat-image"),
   chatImageName: document.getElementById("chat-image-name"),
+  chatFile: document.getElementById("chat-file"),
   clearHistory: document.getElementById("clear-history"),
   adminStats: document.getElementById("admin-stats"),
   moneyTotals: document.getElementById("money-totals"),
@@ -95,6 +96,8 @@ const state = {
   likedModels: [],
   modelSearch: "",
   chatImage: null,
+  chatFile: null,
+  chatFileName: "",
   activeCategory: null,
   activeModel: null,
   uploadedImage: null,
@@ -1254,7 +1257,8 @@ async function loadChatHistory() {
 
 async function sendChatMessage() {
   const text = el.chatText.value.trim();
-  if ((!text && !state.chatImage) || !state.activeModel) return;
+  const hasAttachment = state.chatImage || state.chatFile;
+  if ((!text && !hasAttachment) || !state.activeModel) return;
 
   isChatting = true;
   el.chatSend.disabled = true;
@@ -1262,15 +1266,25 @@ async function sendChatMessage() {
 
   // пустую подсказку убираем перед первым сообщением
   el.chatLog.querySelector(".muted")?.remove();
-  addChatBubble("user", text || "🖼", state.chatImage ? [] : []);
+  const bubbleLabel = state.chatFile ? `📎 ${state.chatFileName}` : "🖼";
+  addChatBubble("user", text || bubbleLabel);
   const image = state.chatImage;
+  const file = state.chatFile;
+  const fileName = state.chatFileName;
   el.chatText.value = "";
   clearChatImage();
+  clearChatFile();
 
   try {
     const res = await api("/api/chat", {
       method: "POST",
-      body: JSON.stringify({ text, model: state.activeModel.key, image: image || undefined }),
+      body: JSON.stringify({
+        text,
+        model: state.activeModel.key,
+        image: image || undefined,
+        file: file || undefined,
+        file_name: file ? fileName : undefined,
+      }),
     });
 
     addChatBubble("assistant", res.answer, res.citations || []);
@@ -1295,6 +1309,14 @@ function clearChatImage() {
   el.chatImageName.textContent = "";
 }
 
+function clearChatFile() {
+  state.chatFile = null;
+  state.chatFileName = "";
+  el.chatFile.value = "";
+  // имя файла делит поле с именем картинки
+  if (!state.chatImage) el.chatImageName.textContent = "";
+}
+
 function initChat() {
   el.chatSend.addEventListener("click", () => {
     if (!isChatting) sendChatMessage();
@@ -1312,6 +1334,7 @@ function initChat() {
   el.chatImage.addEventListener("change", async () => {
     const file = el.chatImage.files?.[0];
     if (!file) return;
+    clearChatFile(); // картинка и файл взаимоисключают друг друга
     try {
       state.chatImage = await downscaleImage(file);
       el.chatImageName.textContent = file.name;
@@ -1321,6 +1344,32 @@ function initChat() {
     }
   });
 
+  // Прикрепление файла — читаем как data-URI, текст извлечёт бэкенд
+  el.chatFile.addEventListener("change", () => {
+    const file = el.chatFile.files?.[0];
+    if (!file) return;
+
+    const limitMb = 15;
+    if (file.size > limitMb * 1024 * 1024) {
+      setHint(el.chatHint, `${t("chat.fileTooBig")} ${limitMb} МБ`, "error");
+      el.chatFile.value = "";
+      return;
+    }
+
+    clearChatImage(); // файл и картинка взаимоисключают друг друга
+    const reader = new FileReader();
+    reader.onload = () => {
+      state.chatFile = reader.result;
+      state.chatFileName = file.name;
+      el.chatImageName.textContent = `📎 ${file.name}`;
+    };
+    reader.onerror = () => {
+      clearChatFile();
+      setHint(el.chatHint, t("chat.fileBad"), "error");
+    };
+    reader.readAsDataURL(file);
+  });
+
   el.chatClear.addEventListener("click", async () => {
     try {
       await api(`/api/chat?model=${encodeURIComponent(state.activeModel?.key || "")}`, {
@@ -1328,6 +1377,7 @@ function initChat() {
       });
       loadChatHistory();
       clearChatImage();
+      clearChatFile();
       setHint(el.chatHint, "");
     } catch (err) {
       setHint(el.chatHint, err.message, "error");
