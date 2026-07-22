@@ -86,6 +86,7 @@
 
         <div id="prompt-row">
           <label for="prompt-input" id="prompt-label" data-i18n="gen.prompt">Что сгенерировать</label>
+          <div id="presets-row" class="presets-row" hidden></div>
           <textarea id="prompt-input" rows="3" placeholder="..."></textarea>
         </div>
 
@@ -108,6 +109,18 @@
   </section>
 
   <!-- Скачивание -->
+  <section class="tab" id="tab-works" hidden>
+    <!-- Папки: фото / видео / музыка -->
+    <div id="works-folders" class="folder-grid"></div>
+
+    <!-- Содержимое выбранной папки -->
+    <div id="works-content" hidden>
+      <button class="back-btn" data-back-works="1">&larr; <span data-i18n="works.back">К папкам</span></button>
+      <h2 class="screen-title" id="works-heading"></h2>
+      <div id="works-gallery" class="gallery"></div>
+    </div>
+  </section>
+
   <section class="tab" id="tab-download" hidden>
     <div class="field">
       <label for="url-input" data-i18n="dl.label">Ссылка на видео или пост</label>
@@ -126,6 +139,12 @@
 
   <!-- Настройки -->
   <section class="tab" id="tab-settings" hidden>
+    <div class="card bonus-card">
+      <b data-i18n="bonus.title">Ежедневный бонус</b>
+      <p class="hint" id="bonus-hint"></p>
+      <button id="bonus-btn" class="primary" data-i18n="bonus.claim">Забрать бонус</button>
+    </div>
+
     <h2 class="section-title" data-i18n="set.language">Язык</h2>
     <div class="segmented" id="language-group">
       <button data-value="ru">Русский</button>
@@ -196,6 +215,9 @@
 <nav class="tabbar" role="tablist">
   <button class="tabbar-btn is-active" data-tab="models" role="tab" aria-selected="true">
     <span aria-hidden="true">&#10024;</span><i data-i18n="nav.models">Модели АИ</i>
+  </button>
+  <button class="tabbar-btn" data-tab="works" role="tab" aria-selected="false">
+    <span aria-hidden="true">&#128193;</span><i data-i18n="nav.works">Мои работы</i>
   </button>
   <button class="tabbar-btn" data-tab="download" role="tab" aria-selected="false">
     <span aria-hidden="true">&#11015;&#65039;</span><i data-i18n="nav.download">Скачивание</i>

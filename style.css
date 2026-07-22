@@ -271,6 +271,35 @@ button.ghost {
 .gallery-item { position: relative; }
 .gallery-item .del-btn { position: absolute; top: 16px; right: 16px; }
 
+/* Мои работы: папки */
+.folder-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 10px;
+}
+
+.folder-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 20px 10px;
+  border: 0;
+  border-radius: 16px;
+  background:
+    radial-gradient(120% 100% at 0% 0%, color-mix(in srgb, var(--brand-1) 20%, transparent), transparent 60%),
+    radial-gradient(120% 100% at 100% 100%, color-mix(in srgb, var(--brand-2) 18%, transparent), transparent 60%),
+    var(--card);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.folder-card:active { transform: scale(0.97); }
+.folder-icon { font-size: 30px; line-height: 1; }
+.folder-card b { font-size: 13px; }
+.folder-count { font-size: 12px; color: var(--hint); }
+
 /* Экраны каталога моделей */
 .cat-grid {
   display: grid;
@@ -370,6 +399,25 @@ button.ghost {
 #lookup-result:not(:empty) { margin-top: 4px; }
 
 #lyrics-row { display: flex; flex-direction: column; gap: 8px; }
+
+.presets-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.preset-chip {
+  padding: 6px 12px;
+  border: 1px solid color-mix(in srgb, var(--brand-1) 40%, transparent);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.preset-chip:active { background: color-mix(in srgb, var(--brand-1) 15%, transparent); }
 
 .report-row {
   padding: 9px 0;
@@ -690,3 +738,5 @@ input[type="file"] {
 .gallery-item audio { width: 100%; margin-top: 4px; }
 
 .gallery-actions { margin-top: 6px; }
+
+.bonus-card { display: flex; flex-direction: column; gap: 8px; }

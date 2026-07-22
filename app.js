@@ -41,11 +41,18 @@ const el = {
   promptRow: document.getElementById("prompt-row"),
   promptInput: document.getElementById("prompt-input"),
   promptLabel: document.getElementById("prompt-label"),
+  presetsRow: document.getElementById("presets-row"),
   lyricsRow: document.getElementById("lyrics-row"),
   lyricsInput: document.getElementById("lyrics-input"),
   generateBtn: document.getElementById("generate-btn"),
   generateHint: document.getElementById("generate-hint"),
   gallery: document.getElementById("gallery"),
+  worksFolders: document.getElementById("works-folders"),
+  worksContent: document.getElementById("works-content"),
+  worksHeading: document.getElementById("works-heading"),
+  worksGallery: document.getElementById("works-gallery"),
+  bonusBtn: document.getElementById("bonus-btn"),
+  bonusHint: document.getElementById("bonus-hint"),
   screenChat: document.getElementById("screen-chat"),
   chatHeading: document.getElementById("chat-heading"),
   chatSub: document.getElementById("chat-sub"),
@@ -76,6 +83,8 @@ const state = {
   models: [],
   mediaCategories: [],
   mediaModels: [],
+  presets: {},
+  paramMultipliers: {},
   activeCategory: null,
   activeModel: null,
   uploadedImage: null,
@@ -141,8 +150,127 @@ function initTabs() {
       });
       if (btn.dataset.tab === "download") loadHistory();
       if (btn.dataset.tab === "models") loadGallery();
+      if (btn.dataset.tab === "works") openWorksFolders();
     });
   });
+}
+
+/* ---------- Мои работы: папки фото / видео / музыка ---------- */
+
+const WORKS_FOLDERS = [
+  { kind: "image", labelKey: "works.photos", icon: "🖼" },
+  { kind: "video", labelKey: "works.videos", icon: "🎬" },
+  { kind: "audio", labelKey: "works.music", icon: "🎵" },
+];
+
+function showWorksFolders() {
+  el.worksFolders.hidden = false;
+  el.worksContent.hidden = true;
+}
+
+async function openWorksFolders() {
+  showWorksFolders();
+  el.worksFolders.textContent = "";
+
+  let counts = { image: 0, video: 0, audio: 0 };
+  try {
+    const data = await api("/api/media/gallery?done=1");
+    counts = data.counts || counts;
+  } catch {
+    /* пусто — покажем нулевые счётчики */
+  }
+
+  for (const folder of WORKS_FOLDERS) {
+    const card = document.createElement("button");
+    card.className = "folder-card";
+
+    const icon = document.createElement("span");
+    icon.className = "folder-icon";
+    icon.textContent = folder.icon;
+
+    const name = document.createElement("b");
+    name.textContent = t(folder.labelKey);
+
+    const count = document.createElement("span");
+    count.className = "folder-count";
+    count.textContent = counts[folder.kind] || 0;
+
+    card.append(icon, name, count);
+    card.addEventListener("click", () => openWorksFolder(folder));
+    el.worksFolders.appendChild(card);
+  }
+}
+
+async function openWorksFolder(folder) {
+  el.worksFolders.hidden = true;
+  el.worksContent.hidden = false;
+  el.worksHeading.textContent = t(folder.labelKey);
+  el.worksGallery.textContent = "";
+
+  try {
+    const data = await api(`/api/media/gallery?kind=${folder.kind}&done=1`);
+    if (!data.items?.length) {
+      const p = document.createElement("p");
+      p.className = "muted";
+      p.textContent = t("works.empty");
+      el.worksGallery.appendChild(p);
+      return;
+    }
+    for (const item of data.items) el.worksGallery.appendChild(worksCard(item));
+  } catch {
+    el.worksGallery.textContent = "";
+  }
+}
+
+function worksCard(item) {
+  const card = document.createElement("div");
+  card.className = "gallery-item";
+
+  if (item.output_kind === "video") {
+    const v = document.createElement("video");
+    v.src = item.output_url;
+    v.controls = true;
+    v.playsInline = true;
+    card.appendChild(v);
+  } else if (item.output_kind === "audio") {
+    const a = document.createElement("audio");
+    a.src = item.output_url;
+    a.controls = true;
+    card.appendChild(a);
+  } else {
+    const img = document.createElement("img");
+    img.src = item.output_url;
+    img.loading = "lazy";
+    card.appendChild(img);
+  }
+
+  const meta = document.createElement("div");
+  meta.className = "gallery-meta";
+  meta.textContent = item.prompt || "";
+
+  const actions = document.createElement("div");
+  actions.className = "gallery-actions";
+
+  const share = document.createElement("button");
+  share.className = "link-btn";
+  share.textContent = t("works.share");
+  share.addEventListener("click", () => shareGeneration(item.id));
+  actions.appendChild(share);
+
+  card.append(meta, actions);
+  return card;
+}
+
+async function shareGeneration(genId) {
+  try {
+    const data = await api(`/api/media/share/${genId}`);
+    // Отдаём ссылку в нативный шэринг Telegram — выбор чата/друга там
+    const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(data.url)}&text=${encodeURIComponent(data.caption)}`;
+    if (tg?.openTelegramLink) tg.openTelegramLink(shareUrl);
+    else window.open(shareUrl, "_blank");
+  } catch {
+    tg?.showAlert?.(t("works.shareErr"));
+  }
 }
 
 /* ---------- История ---------- */
@@ -611,11 +739,33 @@ function openModel(model) {
   el.promptLabel.textContent = styleMode ? t("gen.promptStyle") : t("gen.prompt");
   el.promptInput.placeholder = styleMode ? t("gen.promptStylePh") : t("gen.promptPh");
 
-  el.generateBtn.textContent = state.freeGeneration
+  renderPresets(model);
+
+  el.generateBtn.textContent = state.freeGeneration && model.category === "image"
     ? `${t("gen.button")} · ${t("gen.firstFree")}`
-    : `${t("gen.button")} · ${model.cost} 🪙`;
+    : `${t("gen.button")} · ${computeCost(model)} 🪙`;
   setHint(el.generateHint, "");
   showScreen("generate");
+}
+
+/** Цена с учётом выбранных параметров — та же формула, что на сервере. */
+function computeCost(model) {
+  let cost = model.cost;
+  const mult = state.paramMultipliers || {};
+  for (const [name, value] of Object.entries(state.genParams || {})) {
+    const table = mult[name];
+    if (table && table[value] != null) cost *= table[value];
+  }
+  return Math.max(1, Math.ceil(cost));
+}
+
+function refreshGenerateButton() {
+  const model = state.activeModel;
+  if (!model) return;
+  el.generateBtn.textContent =
+    state.freeGeneration && model.category === "image"
+      ? `${t("gen.button")} · ${t("gen.firstFree")}`
+      : `${t("gen.button")} · ${computeCost(model)} 🪙`;
 }
 
 function initClearButtons() {
@@ -640,6 +790,27 @@ function initClearButtons() {
   });
 }
 
+
+/** Готовые заготовки промпта — чипсы над полем ввода. */
+function renderPresets(model) {
+  el.presetsRow.textContent = "";
+  const presets = (state.presets || {})[model.category] || [];
+  if (!presets.length || model.no_prompt) {
+    el.presetsRow.hidden = true;
+    return;
+  }
+  el.presetsRow.hidden = false;
+
+  for (const preset of presets) {
+    const chip = document.createElement("button");
+    chip.className = "preset-chip";
+    chip.textContent = state.settings.language === "en" ? preset.title_en : preset.title_ru;
+    chip.addEventListener("click", () => {
+      el.promptInput.value = preset.prompt;
+    });
+    el.presetsRow.appendChild(chip);
+  }
+}
 
 /** Выбор длительности и качества — только у моделей, которые их принимают. */
 function renderParams(model) {
@@ -670,6 +841,7 @@ function renderParams(model) {
         group.querySelectorAll("button").forEach((b) => {
           b.classList.toggle("is-active", b === btn);
         });
+        refreshGenerateButton();
       });
       group.appendChild(btn);
     }
@@ -696,7 +868,12 @@ function initAudioUpload() {
 
 function initModelNavigation() {
   document.querySelectorAll(".back-btn").forEach((btn) => {
-    btn.addEventListener("click", () => showScreen(btn.dataset.back));
+    if (btn.dataset.back) {
+      btn.addEventListener("click", () => showScreen(btn.dataset.back));
+    }
+    if (btn.dataset.backWorks) {
+      btn.addEventListener("click", () => showWorksFolders());
+    }
   });
 }
 
@@ -959,6 +1136,8 @@ async function loadMediaCatalog() {
   const data = await api("/api/media/models");
   state.mediaCategories = data.categories || [];
   state.mediaModels = data.items || [];
+  state.presets = data.presets || {};
+  state.paramMultipliers = data.param_multipliers || {};
   renderCategories();
 }
 
@@ -1214,6 +1393,28 @@ async function loadAdminUsers() {
   }
 }
 
+function initBonus() {
+  el.bonusBtn.addEventListener("click", async () => {
+    el.bonusBtn.disabled = true;
+    try {
+      const r = await api("/api/bonus", { method: "POST" });
+      if (r.claimed) {
+        setBalance(r.balance);
+        setHint(el.bonusHint, t("bonus.got"), "ok");
+        tg?.HapticFeedback?.notificationOccurred?.("success");
+        el.bonusBtn.hidden = true;
+      } else {
+        const hours = Math.ceil((r.wait || 0) / 3600);
+        setHint(el.bonusHint, `${t("bonus.wait")} ${hours} ${t("bonus.hours")}`);
+        el.bonusBtn.disabled = true;
+      }
+    } catch (err) {
+      setHint(el.bonusHint, err.message, "error");
+      el.bonusBtn.disabled = false;
+    }
+  });
+}
+
 function initReport() {
   el.reportText.placeholder = t("report.placeholder");
 
@@ -1367,6 +1568,7 @@ async function init() {
   initAdminTools();
   initAudioUpload();
   initReport();
+  initBonus();
   el.generateBtn.addEventListener("click", () => {
     if (!isGenerating) startGeneration();
   });
