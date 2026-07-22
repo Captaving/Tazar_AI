@@ -1,14 +1,30 @@
 // Переводы интерфейса. Ключи вида "раздел.элемент" ставятся в HTML через data-i18n.
 const I18N = {
   ru: {
-    "nav.models": "Модели АИ",
     "bonus.title": "Ежедневный бонус",
     "bonus.claim": "Забрать бонус",
     "bonus.got": "Начислено! Приходи завтра за новым.",
     "bonus.wait": "Следующий бонус через",
     "bonus.hours": "ч",
+    "nav.home": "Главная",
+    "home.generate": "Модели для генерации",
+    "home.generateSub": "Фото, видео, музыка, редактор",
+    "home.text": "Языковые модели",
+    "home.textSub": "Чат с ИИ и веб-поиском",
+    "home.download": "Скачивание по ссылке",
+    "home.downloadSub": "Видео и посты из соцсетей",
+    "gen.doneWorks": "Готово! Результат в чате и во вкладке «Мои работы».",
+    "gen.again": "Ещё раз",
+    "likes.title": "Любимые модели",
+    "likes.empty": "Лайкни модели ♥, они появятся здесь",
+    "search.placeholder": "Поиск модели…",
+    "money.title": "Отчёт по деньгам",
+    "money.runs": "запусков",
+    "money.revenue": "доход",
+    "money.cost": "расход",
+    "money.profit": "прибыль",
+    "money.total": "Итого",
     "nav.works": "Мои работы",
-    "nav.download": "Скачивание",
     "works.back": "К папкам",
     "works.photos": "Фото",
     "works.videos": "Видео",
@@ -34,7 +50,6 @@ const I18N = {
     "gen.button.busy": "Генерирую…",
     "gen.queued": "Ставлю в очередь…",
     "gen.working": "Генерирую — займёт от нескольких секунд до пары минут.",
-    "gen.done": "Готово — результат отправлен в чат с ботом ✅",
     "gen.failed": "Не получилось сгенерировать",
     "gen.slow": "Генерация идёт дольше обычного — проверь чат с ботом позже.",
     "gen.needPrompt": "Опиши, что нужно сгенерировать",
@@ -42,8 +57,6 @@ const I18N = {
     "gen.imageProcessing": "Готовлю картинку…",
     "gen.imageReady": "Картинка готова",
     "gen.imageBad": "Не смог прочитать картинку",
-    "gen.gallery": "Мои генерации",
-    "gen.again": "Ещё раз",
     "gen.firstFree": "первая бесплатно",
     "gen.reattach": "Приложи файл заново",
     "gen.modelGone": "Этой модели больше нет",
@@ -59,8 +72,6 @@ const I18N = {
     "gen.delete": "Удалить",
     "gen.clearAll": "Очистить всё",
     "gen.confirmClear": "Удалить все записи?",
-    "gen.empty": "Пока пусто — выбери модель выше.",
-    "gen.pending": "Генерирую…",
 
     "dl.label": "Ссылка на видео или пост",
     "dl.button": "Скачать",
@@ -85,9 +96,6 @@ const I18N = {
     "set.theme.system": "Системная",
     "set.theme.light": "Светлая",
     "set.theme.dark": "Тёмная",
-    "set.model": "Модель в чате с ботом",
-    "set.free": "бесплатно",
-    "set.perQuery": "за вопрос",
     "set.saveError": "Не смог сохранить",
 
     "admin.title": "Админ-панель",
@@ -142,9 +150,25 @@ const I18N = {
   },
 
   en: {
-    "nav.models": "AI models",
+    "nav.home": "Home",
+    "home.generate": "Generation models",
+    "home.generateSub": "Photos, video, music, editor",
+    "home.text": "Language models",
+    "home.textSub": "AI chat with web search",
+    "home.download": "Download by link",
+    "home.downloadSub": "Videos and social posts",
+    "gen.doneWorks": "Done! Result is in chat and the My Works tab.",
+    "gen.again": "Again",
+    "likes.title": "Favorite models",
+    "likes.empty": "Like models ♥ to see them here",
+    "search.placeholder": "Search models…",
+    "money.title": "Money report",
+    "money.runs": "runs",
+    "money.revenue": "revenue",
+    "money.cost": "cost",
+    "money.profit": "profit",
+    "money.total": "Total",
     "nav.works": "My works",
-    "nav.download": "Download",
     "works.back": "To folders",
     "works.photos": "Photos",
     "works.videos": "Videos",
@@ -175,7 +199,6 @@ const I18N = {
     "gen.button.busy": "Generating…",
     "gen.queued": "Queueing…",
     "gen.working": "Generating — takes from seconds to a couple of minutes.",
-    "gen.done": "Done — the result was sent to your chat with the bot ✅",
     "gen.failed": "Generation failed",
     "gen.slow": "Taking longer than usual — check your chat with the bot later.",
     "gen.needPrompt": "Describe what to generate",
@@ -183,8 +206,6 @@ const I18N = {
     "gen.imageProcessing": "Preparing the image…",
     "gen.imageReady": "Image ready",
     "gen.imageBad": "Couldn't read that image",
-    "gen.gallery": "My generations",
-    "gen.again": "Again",
     "gen.firstFree": "first one free",
     "gen.reattach": "Attach the file again",
     "gen.modelGone": "That model is gone",
@@ -200,8 +221,6 @@ const I18N = {
     "gen.delete": "Delete",
     "gen.clearAll": "Clear all",
     "gen.confirmClear": "Delete all entries?",
-    "gen.empty": "Nothing yet — pick a model above.",
-    "gen.pending": "Generating…",
 
     "dl.label": "Link to a video or post",
     "dl.button": "Download",
@@ -226,9 +245,6 @@ const I18N = {
     "set.theme.system": "System",
     "set.theme.light": "Light",
     "set.theme.dark": "Dark",
-    "set.model": "Model in the bot chat",
-    "set.free": "free",
-    "set.perQuery": "per question",
     "set.saveError": "Couldn't save",
 
     "admin.title": "Admin panel",
@@ -294,5 +310,8 @@ function applyLanguage(lang) {
   document.documentElement.lang = currentLang;
   document.querySelectorAll("[data-i18n]").forEach((node) => {
     node.textContent = t(node.dataset.i18n);
+  });
+  document.querySelectorAll("[data-i18n-ph]").forEach((node) => {
+    node.placeholder = t(node.dataset.i18nPh);
   });
 }

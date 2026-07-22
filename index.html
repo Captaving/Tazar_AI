@@ -36,20 +36,64 @@
 <main>
   <!-- Модели АИ -->
   <section class="tab" id="tab-models">
-    <!-- Шаг 1: категории -->
-    <div id="screen-categories">
-      <div id="category-grid" class="cat-grid"></div>
-      <div class="section-head">
-        <h2 class="section-title" data-i18n="gen.gallery">Мои генерации</h2>
-        <button id="clear-gallery" class="link-btn" data-i18n="gen.clearAll">Очистить всё</button>
+    <!-- Главный экран: три блока -->
+    <div id="screen-home">
+      <div class="home-blocks">
+        <button class="home-block" data-home="generate">
+          <span class="home-icon">🎨</span>
+          <b data-i18n="home.generate">Модели для генерации</b>
+          <span class="home-sub" data-i18n="home.generateSub">Фото, видео, музыка, редактор</span>
+        </button>
+        <button class="home-block" data-home="text">
+          <span class="home-icon">💬</span>
+          <b data-i18n="home.text">Языковые модели</b>
+          <span class="home-sub" data-i18n="home.textSub">Чат с ИИ и веб-поиском</span>
+        </button>
+        <button class="home-block" data-home="download">
+          <span class="home-icon">⬇️</span>
+          <b data-i18n="home.download">Скачивание по ссылке</b>
+          <span class="home-sub" data-i18n="home.downloadSub">Видео и посты из соцсетей</span>
+        </button>
       </div>
-      <div id="gallery" class="gallery"></div>
+    </div>
+
+    <!-- Экран категорий генерации -->
+    <div id="screen-categories" hidden>
+      <button class="back-btn" data-back="home">&larr; <span data-i18n="gen.back">Назад</span></button>
+      <div id="category-grid" class="cat-grid"></div>
+    </div>
+
+    <!-- Экран списка языковых моделей -->
+    <div id="screen-text" hidden>
+      <button class="back-btn" data-back="home">&larr; <span data-i18n="gen.back">Назад</span></button>
+      <h2 class="screen-title" data-i18n="home.text">Языковые модели</h2>
+      <div id="text-model-picker" class="models"></div>
+    </div>
+
+    <!-- Экран скачивания по ссылке -->
+    <div id="screen-download" hidden>
+      <button class="back-btn" data-back="home">&larr; <span data-i18n="gen.back">Назад</span></button>
+      <h2 class="screen-title" data-i18n="home.download">Скачивание по ссылке</h2>
+      <div class="field">
+        <label for="url-input" data-i18n="dl.label">Ссылка на видео или пост</label>
+        <input id="url-input" type="url" inputmode="url" autocomplete="off" placeholder="https://..." />
+        <button id="download-btn" class="primary" data-i18n="dl.button">Скачать</button>
+        <div id="quality-list" class="qualities" hidden></div>
+        <p class="hint" id="download-hint"></p>
+      </div>
+
+      <div class="section-head">
+        <h2 class="section-title" data-i18n="dl.history">История</h2>
+        <button id="clear-history" class="link-btn" data-i18n="gen.clearAll">Очистить всё</button>
+      </div>
+      <div id="history-list" class="history"></div>
     </div>
 
     <!-- Шаг 2: модели внутри категории -->
     <div id="screen-models" hidden>
       <button class="back-btn" data-back="categories">&larr; <span data-i18n="gen.back">Назад</span></button>
       <h2 class="screen-title" id="models-heading"></h2>
+      <input id="model-search" type="search" placeholder="..." data-i18n-ph="search.placeholder" />
       <div id="model-picker" class="models"></div>
     </div>
 
@@ -65,6 +109,11 @@
       <div id="chat-log" class="chat-log"></div>
 
       <div class="chat-input">
+        <div class="chat-attach">
+          <label for="chat-image" class="attach-btn" title="Прикрепить фото">📎</label>
+          <input id="chat-image" type="file" accept="image/*" hidden />
+          <span id="chat-image-name" class="attach-name"></span>
+        </div>
         <textarea id="chat-text" rows="2" placeholder="..."></textarea>
         <button id="chat-send" class="primary" data-i18n="chat.send">Отправить</button>
       </div>
@@ -121,22 +170,6 @@
     </div>
   </section>
 
-  <section class="tab" id="tab-download" hidden>
-    <div class="field">
-      <label for="url-input" data-i18n="dl.label">Ссылка на видео или пост</label>
-      <input id="url-input" type="url" inputmode="url" autocomplete="off" placeholder="https://..." />
-      <button id="download-btn" class="primary" data-i18n="dl.button">Скачать</button>
-      <div id="quality-list" class="qualities" hidden></div>
-      <p class="hint" id="download-hint"></p>
-    </div>
-
-    <div class="section-head">
-      <h2 class="section-title" data-i18n="dl.history">История</h2>
-      <button id="clear-history" class="link-btn" data-i18n="gen.clearAll">Очистить всё</button>
-    </div>
-    <div id="history-list" class="history"></div>
-  </section>
-
   <!-- Настройки -->
   <section class="tab" id="tab-settings" hidden>
     <div class="card bonus-card">
@@ -158,8 +191,8 @@
       <button data-value="dark" data-i18n="set.theme.dark">Тёмная</button>
     </div>
 
-    <h2 class="section-title" data-i18n="set.model">Модель в чате с ботом</h2>
-    <div id="model-list" class="models"></div>
+    <h2 class="section-title" data-i18n="likes.title">Любимые модели</h2>
+    <div id="liked-list" class="models"></div>
 
     <h2 class="section-title" data-i18n="report.title">Сообщить о проблеме</h2>
     <div class="card">
@@ -173,6 +206,12 @@
       <h2 class="section-title" data-i18n="admin.title">Админ-панель</h2>
 
       <div id="admin-stats" class="stat-grid"></div>
+
+      <div class="card">
+        <b data-i18n="money.title">Отчёт по деньгам</b>
+        <div id="money-totals" class="money-totals"></div>
+        <div id="money-list"></div>
+      </div>
 
       <div class="card">
         <b data-i18n="admin.grant">Начислить</b>
@@ -214,13 +253,10 @@
 
 <nav class="tabbar" role="tablist">
   <button class="tabbar-btn is-active" data-tab="models" role="tab" aria-selected="true">
-    <span aria-hidden="true">&#10024;</span><i data-i18n="nav.models">Модели АИ</i>
+    <span aria-hidden="true">&#127968;</span><i data-i18n="nav.home">Главная</i>
   </button>
   <button class="tabbar-btn" data-tab="works" role="tab" aria-selected="false">
     <span aria-hidden="true">&#128193;</span><i data-i18n="nav.works">Мои работы</i>
-  </button>
-  <button class="tabbar-btn" data-tab="download" role="tab" aria-selected="false">
-    <span aria-hidden="true">&#11015;&#65039;</span><i data-i18n="nav.download">Скачивание</i>
   </button>
   <button class="tabbar-btn" data-tab="settings" role="tab" aria-selected="false">
     <span aria-hidden="true">&#9881;&#65039;</span><i data-i18n="nav.settings">Настройки</i>

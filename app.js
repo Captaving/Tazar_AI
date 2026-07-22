@@ -16,14 +16,18 @@ const el = {
   qualityList: document.getElementById("quality-list"),
   languageGroup: document.getElementById("language-group"),
   themeGroup: document.getElementById("theme-group"),
-  modelList: document.getElementById("model-list"),
+  likedList: document.getElementById("liked-list"),
   adminPanel: document.getElementById("admin-panel"),
   grantUser: document.getElementById("grant-user"),
   grantAmount: document.getElementById("grant-amount"),
   grantBtn: document.getElementById("grant-btn"),
   grantSelf: document.getElementById("grant-self"),
   grantHint: document.getElementById("grant-hint"),
+  screenHome: document.getElementById("screen-home"),
   screenCategories: document.getElementById("screen-categories"),
+  screenText: document.getElementById("screen-text"),
+  screenDownload: document.getElementById("screen-download"),
+  textModelPicker: document.getElementById("text-model-picker"),
   screenModels: document.getElementById("screen-models"),
   screenGenerate: document.getElementById("screen-generate"),
   categoryGrid: document.getElementById("category-grid"),
@@ -31,6 +35,7 @@ const el = {
   generateHeading: document.getElementById("generate-heading"),
   generateSub: document.getElementById("generate-sub"),
   modelPicker: document.getElementById("model-picker"),
+  modelSearch: document.getElementById("model-search"),
   imageRow: document.getElementById("image-row"),
   imageInput: document.getElementById("image-input"),
   imagePreview: document.getElementById("image-preview"),
@@ -46,7 +51,6 @@ const el = {
   lyricsInput: document.getElementById("lyrics-input"),
   generateBtn: document.getElementById("generate-btn"),
   generateHint: document.getElementById("generate-hint"),
-  gallery: document.getElementById("gallery"),
   worksFolders: document.getElementById("works-folders"),
   worksContent: document.getElementById("works-content"),
   worksHeading: document.getElementById("works-heading"),
@@ -61,9 +65,12 @@ const el = {
   chatSend: document.getElementById("chat-send"),
   chatClear: document.getElementById("chat-clear"),
   chatHint: document.getElementById("chat-hint"),
-  clearGallery: document.getElementById("clear-gallery"),
+  chatImage: document.getElementById("chat-image"),
+  chatImageName: document.getElementById("chat-image-name"),
   clearHistory: document.getElementById("clear-history"),
   adminStats: document.getElementById("admin-stats"),
+  moneyTotals: document.getElementById("money-totals"),
+  moneyList: document.getElementById("money-list"),
   lookupUser: document.getElementById("lookup-user"),
   lookupBtn: document.getElementById("lookup-btn"),
   lookupResult: document.getElementById("lookup-result"),
@@ -85,6 +92,9 @@ const state = {
   mediaModels: [],
   presets: {},
   paramMultipliers: {},
+  likedModels: [],
+  modelSearch: "",
+  chatImage: null,
   activeCategory: null,
   activeModel: null,
   uploadedImage: null,
@@ -148,10 +158,15 @@ function initTabs() {
       document.querySelectorAll(".tab").forEach((tab) => {
         tab.hidden = tab.id !== `tab-${btn.dataset.tab}`;
       });
-      if (btn.dataset.tab === "download") loadHistory();
-      if (btn.dataset.tab === "models") loadGallery();
+      // На главную всегда возвращаемся к трём блокам
+      if (btn.dataset.tab === "models") showScreen("home");
       if (btn.dataset.tab === "works") openWorksFolders();
     });
+  });
+
+  // Три блока главного экрана
+  document.querySelectorAll(".home-block").forEach((block) => {
+    block.addEventListener("click", () => openHomeBlock(block.dataset.home));
   });
 }
 
@@ -256,6 +271,15 @@ function worksCard(item) {
   share.textContent = t("works.share");
   share.addEventListener("click", () => shareGeneration(item.id));
   actions.appendChild(share);
+
+  // «Ещё раз» — открыть модель с тем же промптом
+  if (item.prompt && item.model_key) {
+    const again = document.createElement("button");
+    again.className = "link-btn";
+    again.textContent = t("gen.again");
+    again.addEventListener("click", () => repeatGeneration(item));
+    actions.appendChild(again);
+  }
 
   card.append(meta, actions);
   return card;
@@ -509,10 +533,10 @@ async function saveSettings(patch) {
 
   if (patch.language) applyLanguage(patch.language);
   if (patch.theme) applyTheme(patch.theme);
-  if (patch.text_model) renderModels();
   if (patch.language) {
     renderCategories();
     if (state.activeCategory) renderModelPicker();
+    renderLikedModels();
   }
 
   try {
@@ -528,18 +552,26 @@ async function saveSettings(patch) {
     applyTheme(previous.theme);
     markSegmented(el.languageGroup, previous.language);
     markSegmented(el.themeGroup, previous.theme);
-    renderModels();
     setHint(el.grantHint, `${t("set.saveError")}: ${err.message}`, "error");
   }
 }
 
-function renderModels() {
-  el.modelList.textContent = "";
+/** Папка любимых моделей — всё, что лайкнул, в одном месте. */
+function renderLikedModels() {
+  el.likedList.textContent = "";
 
-  for (const model of state.models) {
+  const liked = state.mediaModels.filter((m) => state.likedModels.includes(m.key));
+  if (!liked.length) {
+    const p = document.createElement("p");
+    p.className = "muted";
+    p.textContent = t("likes.empty");
+    el.likedList.appendChild(p);
+    return;
+  }
+
+  for (const model of liked) {
     const card = document.createElement("button");
     card.className = "model-card";
-    card.classList.toggle("is-active", model.key === state.settings.text_model);
 
     const head = document.createElement("div");
     head.className = "model-head";
@@ -549,7 +581,7 @@ function renderModels() {
 
     const price = document.createElement("span");
     price.className = model.cost === 0 ? "badge free" : "badge";
-    price.textContent = model.cost === 0 ? t("set.free") : `${model.cost} 🪙 ${t("set.perQuery")}`;
+    price.textContent = model.cost === 0 ? t("chat.free") : `${model.cost} 🪙`;
 
     head.append(name, price);
 
@@ -558,8 +590,12 @@ function renderModels() {
     desc.textContent = state.settings.language === "en" ? model.desc_en : model.desc_ru;
 
     card.append(head, desc);
-    card.addEventListener("click", () => saveSettings({ text_model: model.key }));
-    el.modelList.appendChild(card);
+    // тап открывает модель: прыгаем в её категорию и форму
+    card.addEventListener("click", () => {
+      state.activeCategory = model.category;
+      openModel(model);
+    });
+    el.likedList.appendChild(card);
   }
 }
 
@@ -619,7 +655,10 @@ let isGenerating = false;
 
 /** Три экрана: категории -> модели -> форма генерации. */
 function showScreen(name) {
+  el.screenHome.hidden = name !== "home";
   el.screenCategories.hidden = name !== "categories";
+  el.screenText.hidden = name !== "text";
+  el.screenDownload.hidden = name !== "download";
   el.screenModels.hidden = name !== "models";
   el.screenGenerate.hidden = name !== "generate";
   el.screenChat.hidden = name !== "chat";
@@ -630,10 +669,26 @@ function catName(cat) {
   return state.settings.language === "en" ? cat.name_en : cat.name_ru;
 }
 
+/** Открывает один из трёх блоков главного экрана. */
+function openHomeBlock(block) {
+  if (block === "generate") {
+    renderCategories();
+    showScreen("categories");
+  } else if (block === "text") {
+    renderTextModels();
+    showScreen("text");
+  } else if (block === "download") {
+    loadHistory();
+    showScreen("download");
+  }
+}
+
 function renderCategories() {
   el.categoryGrid.textContent = "";
 
-  for (const cat of state.mediaCategories) {
+  // На экране генерации — только категории раздела "generate" (без чата)
+  const cats = state.mediaCategories.filter((c) => c.section !== "text");
+  for (const cat of cats) {
     const card = document.createElement("button");
     card.className = "cat-card";
 
@@ -655,8 +710,62 @@ function renderCategories() {
   }
 }
 
+/** Список языковых моделей для блока «Языковые модели». */
+function renderTextModels() {
+  el.textModelPicker.textContent = "";
+  const models = state.mediaModels.filter((m) => m.category === "text");
+  for (const model of models) {
+    const card = document.createElement("button");
+    card.className = "model-card";
+
+    const head = document.createElement("div");
+    head.className = "model-head";
+
+    const name = document.createElement("b");
+    name.textContent = model.name;
+
+    const price = document.createElement("span");
+    price.className = model.cost === 0 ? "badge free" : "badge";
+    price.textContent =
+      model.cost === 0 ? t("chat.free") : `${model.cost} 🪙 / ${model.requests_per_jeton}`;
+
+    const like = document.createElement("span");
+    const isLiked = state.likedModels.includes(model.key);
+    like.className = "like-heart";
+    like.textContent = isLiked ? "♥" : "♡";
+    like.classList.toggle("is-liked", isLiked);
+    like.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      try {
+        const r = await api(`/api/media/like/${model.key}`, { method: "POST" });
+        if (r.liked) {
+          if (!state.likedModels.includes(model.key)) state.likedModels.push(model.key);
+        } else {
+          state.likedModels = state.likedModels.filter((k) => k !== model.key);
+        }
+        like.textContent = r.liked ? "♥" : "♡";
+        like.classList.toggle("is-liked", r.liked);
+      } catch {
+        /* некритично */
+      }
+    });
+
+    head.append(name, price, like);
+
+    const desc = document.createElement("p");
+    desc.className = "model-desc";
+    desc.textContent = state.settings.language === "en" ? model.desc_en : model.desc_ru;
+
+    card.append(head, desc);
+    card.addEventListener("click", () => openChat(model));
+    el.textModelPicker.appendChild(card);
+  }
+}
+
 function openCategory(cat) {
   state.activeCategory = cat.key;
+  state.modelSearch = "";
+  if (el.modelSearch) el.modelSearch.value = "";
   state.activeModel = null;
   el.modelsHeading.textContent = catName(cat);
   renderModelPicker();
@@ -666,7 +775,14 @@ function openCategory(cat) {
 function renderModelPicker() {
   el.modelPicker.textContent = "";
 
-  const models = state.mediaModels.filter((m) => m.category === state.activeCategory);
+  const query = (state.modelSearch || "").trim().toLowerCase();
+  const models = state.mediaModels.filter((m) => {
+    if (m.category !== state.activeCategory) return false;
+    if (!query) return true;
+    const hay = `${m.name} ${m.desc_ru} ${m.desc_en}`.toLowerCase();
+    return hay.includes(query);
+  });
+
   for (const model of models) {
     const card = document.createElement("button");
     card.className = "model-card";
@@ -687,7 +803,29 @@ function renderModelPicker() {
       price.textContent = `${model.cost} 🪙`;
     }
 
-    head.append(name, price);
+    // Сердечко-лайк: клик по нему не открывает модель
+    const like = document.createElement("span");
+    const isLiked = state.likedModels.includes(model.key);
+    like.className = "like-heart";
+    like.textContent = isLiked ? "♥" : "♡";
+    like.classList.toggle("is-liked", isLiked);
+    like.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      try {
+        const r = await api(`/api/media/like/${model.key}`, { method: "POST" });
+        if (r.liked) {
+          if (!state.likedModels.includes(model.key)) state.likedModels.push(model.key);
+        } else {
+          state.likedModels = state.likedModels.filter((k) => k !== model.key);
+        }
+        like.textContent = r.liked ? "♥" : "♡";
+        like.classList.toggle("is-liked", r.liked);
+      } catch {
+        /* игнорируем — не критично */
+      }
+    });
+
+    head.append(name, price, like);
 
     const desc = document.createElement("p");
     desc.className = "model-desc";
@@ -769,16 +907,6 @@ function refreshGenerateButton() {
 }
 
 function initClearButtons() {
-  el.clearGallery.addEventListener("click", async () => {
-    if (!confirm(t("gen.confirmClear"))) return;
-    try {
-      await api("/api/media/gallery", { method: "DELETE" });
-      renderGallery([]);
-    } catch (err) {
-      setHint(el.generateHint, err.message, "error");
-    }
-  });
-
   el.clearHistory.addEventListener("click", async () => {
     if (!confirm(t("gen.confirmClear"))) return;
     try {
@@ -867,6 +995,10 @@ function initAudioUpload() {
 }
 
 function initModelNavigation() {
+  el.modelSearch.addEventListener("input", () => {
+    state.modelSearch = el.modelSearch.value;
+    renderModelPicker();
+  });
   document.querySelectorAll(".back-btn").forEach((btn) => {
     if (btn.dataset.back) {
       btn.addEventListener("click", () => showScreen(btn.dataset.back));
@@ -978,7 +1110,6 @@ async function startGeneration() {
       }),
     });
     setHint(el.generateHint, t("gen.working"));
-    loadGallery();
     await pollGeneration(job.id);
   } catch (err) {
     setHint(el.generateHint, err.message, "error");
@@ -1007,11 +1138,10 @@ async function pollGeneration(id) {
     if (job.status === "pending") continue;
 
     setBalance(job.balance);
-    loadGallery();
 
     if (job.status === "done") {
       state.freeGeneration = false;
-      setHint(el.generateHint, t("gen.done"), "ok");
+      setHint(el.generateHint, t("gen.doneWorks"), "ok");
       tg?.HapticFeedback?.notificationOccurred?.("success");
     } else {
       setHint(el.generateHint, job.error || t("gen.failed"), "error");
@@ -1021,84 +1151,6 @@ async function pollGeneration(id) {
   }
 
   setHint(el.generateHint, t("gen.slow"));
-}
-
-function renderGallery(items) {
-  el.gallery.textContent = "";
-
-  if (!items.length) {
-    const p = document.createElement("p");
-    p.className = "muted";
-    p.textContent = t("gen.empty");
-    el.gallery.appendChild(p);
-    return;
-  }
-
-  for (const item of items) {
-    const card = document.createElement("div");
-    card.className = "gallery-item";
-
-    if (item.status === "done" && item.output_url) {
-      if (item.output_kind === "video") {
-        const video = document.createElement("video");
-        video.src = item.output_url;
-        video.controls = true;
-        video.playsInline = true;
-        card.appendChild(video);
-      } else if (item.output_kind === "audio") {
-        const audio = document.createElement("audio");
-        audio.src = item.output_url;
-        audio.controls = true;
-        card.appendChild(audio);
-      } else {
-        const img = document.createElement("img");
-        img.src = item.output_url;
-        img.loading = "lazy";
-        card.appendChild(img);
-      }
-    }
-
-    const meta = document.createElement("div");
-    meta.className = item.status === "failed" ? "gallery-meta error" : "gallery-meta";
-    if (item.status === "failed") {
-      meta.textContent = item.error || t("gen.failed");
-    } else if (item.status === "pending") {
-      meta.textContent = t("gen.pending");
-    } else {
-      // промпт приходит от пользователя — только textContent
-      meta.textContent = item.prompt || "";
-    }
-
-    const del = document.createElement("button");
-    del.className = "del-btn";
-    del.textContent = "✕";
-    del.title = t("gen.delete");
-    del.addEventListener("click", async () => {
-      del.disabled = true;
-      try {
-        await api(`/api/media/job/${item.id}`, { method: "DELETE" });
-        card.remove();
-        if (!el.gallery.children.length) renderGallery([]);
-      } catch {
-        del.disabled = false;
-      }
-    });
-
-    const actions = document.createElement("div");
-    actions.className = "gallery-actions";
-
-    // Повторить с тем же промптом — самый частый сценарий после неудачного результата
-    if (item.prompt) {
-      const again = document.createElement("button");
-      again.className = "link-btn";
-      again.textContent = t("gen.again");
-      again.addEventListener("click", () => repeatGeneration(item));
-      actions.appendChild(again);
-    }
-
-    card.append(meta, actions, del);
-    el.gallery.appendChild(card);
-  }
 }
 
 /** Открывает форму модели с уже заполненным промптом. */
@@ -1120,15 +1172,6 @@ function repeatGeneration(item) {
   // картинку и аудио пользователь приложит заново: у нас их копий нет
   if (model.needs_image || model.needs_audio) {
     setHint(el.generateHint, t("gen.reattach"));
-  }
-}
-
-async function loadGallery() {
-  try {
-    const data = await api("/api/media/gallery");
-    renderGallery(data.items || []);
-  } catch {
-    el.gallery.textContent = "";
   }
 }
 
@@ -1211,7 +1254,7 @@ async function loadChatHistory() {
 
 async function sendChatMessage() {
   const text = el.chatText.value.trim();
-  if (!text || !state.activeModel) return;
+  if ((!text && !state.chatImage) || !state.activeModel) return;
 
   isChatting = true;
   el.chatSend.disabled = true;
@@ -1219,13 +1262,15 @@ async function sendChatMessage() {
 
   // пустую подсказку убираем перед первым сообщением
   el.chatLog.querySelector(".muted")?.remove();
-  addChatBubble("user", text);
+  addChatBubble("user", text || "🖼", state.chatImage ? [] : []);
+  const image = state.chatImage;
   el.chatText.value = "";
+  clearChatImage();
 
   try {
     const res = await api("/api/chat", {
       method: "POST",
-      body: JSON.stringify({ text, model: state.activeModel.key }),
+      body: JSON.stringify({ text, model: state.activeModel.key, image: image || undefined }),
     });
 
     addChatBubble("assistant", res.answer, res.citations || []);
@@ -1244,6 +1289,12 @@ async function sendChatMessage() {
   }
 }
 
+function clearChatImage() {
+  state.chatImage = null;
+  el.chatImage.value = "";
+  el.chatImageName.textContent = "";
+}
+
 function initChat() {
   el.chatSend.addEventListener("click", () => {
     if (!isChatting) sendChatMessage();
@@ -1257,12 +1308,26 @@ function initChat() {
     }
   });
 
+  // Прикрепление картинки — ужимаем тем же способом, что и для генерации
+  el.chatImage.addEventListener("change", async () => {
+    const file = el.chatImage.files?.[0];
+    if (!file) return;
+    try {
+      state.chatImage = await downscaleImage(file);
+      el.chatImageName.textContent = file.name;
+    } catch {
+      clearChatImage();
+      setHint(el.chatHint, t("gen.imageBad"), "error");
+    }
+  });
+
   el.chatClear.addEventListener("click", async () => {
     try {
       await api(`/api/chat?model=${encodeURIComponent(state.activeModel?.key || "")}`, {
         method: "DELETE",
       });
       loadChatHistory();
+      clearChatImage();
       setHint(el.chatHint, "");
     } catch (err) {
       setHint(el.chatHint, err.message, "error");
@@ -1284,6 +1349,34 @@ function statCard(labelKey, value) {
 
   box.append(num, label);
   return box;
+}
+
+async function loadMoneyReport() {
+  try {
+    const data = await api("/api/admin/money");
+    el.moneyTotals.textContent = "";
+    el.moneyList.textContent = "";
+
+    const tot = data.totals || {};
+    const totalLine = document.createElement("p");
+    totalLine.className = "money-total-line";
+    totalLine.textContent =
+      `${t("money.total")}: ${t("money.revenue")} $${tot.revenue_usd ?? 0} · ` +
+      `${t("money.cost")} $${tot.usd_cost ?? 0} · ` +
+      `${t("money.profit")} $${tot.profit_usd ?? 0}`;
+    el.moneyTotals.appendChild(totalLine);
+
+    for (const r of data.items || []) {
+      const row = document.createElement("p");
+      row.className = r.profit_usd < 0 ? "money-row loss" : "money-row";
+      row.textContent =
+        `${r.model_key}: ${r.runs} ${t("money.runs")} · ` +
+        `${r.jetons} 🪙 · $${r.revenue_usd} − $${r.usd_cost} = $${r.profit_usd}`;
+      el.moneyList.appendChild(row);
+    }
+  } catch {
+    el.moneyList.textContent = "";
+  }
 }
 
 async function loadAdminStats() {
@@ -1606,6 +1699,7 @@ async function init() {
     state.userId = me.user_id;
     state.settings = me.settings;
     state.freeGeneration = !!me.free_generation;
+    state.likedModels = me.liked_models || [];
 
     el.greeting.textContent = `${me.first_name || "…"}`;
     setBalance(me.balance);
@@ -1618,16 +1712,13 @@ async function init() {
     if (me.is_admin) {
       el.adminPanel.hidden = false;
       loadAdminStats();
+      loadMoneyReport();
       loadAdminUsers();
       loadAdminReports();
     }
 
-    const models = await api("/api/models");
-    state.models = models.items || [];
-    renderModels();
-
     await loadMediaCatalog();
-    loadGallery();
+    renderLikedModels();
     loadHistory();
     hideSplash();
   } catch (err) {

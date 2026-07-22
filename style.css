@@ -740,3 +740,86 @@ input[type="file"] {
 .gallery-actions { margin-top: 6px; }
 
 .bonus-card { display: flex; flex-direction: column; gap: 8px; }
+
+
+/* Лайк-сердечко на карточке модели */
+.like-heart {
+  flex: 0 0 auto;
+  margin-left: 6px;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--hint);
+  cursor: pointer;
+}
+.like-heart.is-liked { color: #ef4444; }
+
+/* Поиск моделей */
+#model-search {
+  width: 100%;
+  padding: 10px 14px;
+  margin-bottom: 10px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--hint) 35%, transparent);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 15px;
+}
+#model-search:focus { outline: none; border-color: var(--brand-1); }
+
+/* Вложение картинки в чат */
+.chat-attach { display: flex; align-items: center; gap: 8px; }
+.attach-btn {
+  font-size: 20px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--hint) 12%, transparent);
+}
+.attach-name { font-size: 12px; color: var(--hint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Отчёт по деньгам */
+.money-totals { margin: 6px 0; }
+.money-total-line { font-size: 14px; font-weight: 600; margin: 0 0 8px; }
+.money-row { font-size: 12px; color: var(--hint); margin: 3px 0; overflow-wrap: anywhere; }
+.money-row.loss { color: var(--danger); }
+#money-list { max-height: 300px; overflow-y: auto; }
+
+
+/* Главный экран: три больших блока */
+.home-blocks { display: flex; flex-direction: column; gap: 12px; }
+.home-block {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 22px 18px;
+  border: 0;
+  border-radius: 18px;
+  background:
+    radial-gradient(130% 100% at 0% 0%, color-mix(in srgb, var(--brand-1) 24%, transparent), transparent 60%),
+    radial-gradient(130% 100% at 100% 100%, color-mix(in srgb, var(--brand-2) 22%, transparent), transparent 60%),
+    var(--card);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.home-block:active { transform: scale(0.98); }
+.home-block b { font-size: 17px; }
+.home-icon { font-size: 30px; line-height: 1; }
+.home-sub { font-size: 13px; color: var(--hint); }
+
+/* Поле чата: компактная строка ввода, чтобы не наезжала на таббар */
+.chat-input {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.chat-input textarea {
+  flex: 1 1 100%;
+  min-height: 44px;
+  resize: none;
+}
+.chat-input .primary { flex: 1 1 auto; width: auto; padding: 12px 18px; }
+.chat-attach { flex: 0 0 auto; }
